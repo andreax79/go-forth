@@ -1,8 +1,12 @@
 package main
 
 import (
+    "os"
     "fmt"
     "unsafe"
+    "bufio"
+    "strings"
+    "strconv"
 )
 
 const MemorySize = 64
@@ -33,10 +37,37 @@ const (
     GREAT     /* Compare for Greater */
     EQ_LESS   /* Compare for Equal or Less */
     LESS      /* Compare for Less */
-    JUMP_CON  /* Jump if condition */
+    JMPC  /* Jump if condition */
     STORE
     LOAD
 )
+
+var Names = map[string]Word {
+    "NOP": NOP,
+    "HLT": HLT,
+    // "PUSH": PUSH,
+    "ZERO": ZERO,
+    "DROP": DROP,
+    "DUP": DUP,
+    "SWAP": SWAP,
+    "ADD": ADD,
+    "SUB": SUB,
+    "MUL": DIV,
+    "INC": INC,
+    "DEC": DEC,
+    "AND": AND,
+    "OR": OR,
+    "XOR": XOR,
+    "=": EQ,
+    "<>": NOT_EQ,
+    ">": GREAT,
+    ">=": EQ_GREAT,
+    "<": LESS,
+    "<=": EQ_LESS,
+    "JMPC": JMPC,
+    "STORE": STORE,
+    "LOAD": LOAD,
+}
 
 
 // var prog = []int{ PUSH, 79, PUSH, 1, ADD, PUSH, 40, DIV, HLT}
@@ -55,7 +86,7 @@ INC,
 PUSH, 30, STORE,
 
 PUSH, 0, GREAT,
-PUSH, 5, JUMP_CON,
+PUSH, 5, JMPC,
 
 PUSH, 30, LOAD,
 PUSH, 5,
@@ -111,7 +142,69 @@ func (cpu *CPU) Pop2() (Word, Word, error) {
     return v1, v2, nil
 }
 
+// https://www.bernhard-baehr.de/pdp8e/pal8.html
+func compile(filename string) {
+    pc := 0
+    program := make([]Word, 0)
+    labels := map[string]int{}
+    file, err := os.Open(filename)
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+    defer file.Close()
+    scanner := bufio.NewScanner(file)
+    for scanner.Scan() {
+        t := scanner.Text()
+        if len(t) == 0 {
+            continue
+        }
+        for _, token := range strings.Fields(t) {
+            token = strings.ToUpper(token)
+            if strings.HasPrefix(token, "/") { // Start of comment. The rest of the current line is ignored.
+                break
+            }
+            if strings.HasSuffix(token, ",") { // Define a symbol with the value of the current location counter (used to define labels)
+                label := strings.ToUpper(strings.TrimSuffix(token, ","))
+                labels[label] = pc
+                continue
+            }
+            fmt.Printf("%04d ", pc)
+            if c, exists := Names[token]; exists {
+                fmt.Println(Word(c))
+                program = append(program, Word(c))
+                pc++
+            } else if c, exists := labels[token]; exists {
+                program = append(program, Word(c))
+                pc++
+            } else {
+                value, err := strconv.Atoi(token)
+                if err != nil {
+                    fmt.Println(token, err)
+                    return
+                }
+                pc += 2
+                program = append(program, PUSH)
+                program = append(program, Word(value))
+                fmt.Printf("PUSH %d\n", value)
+            }
+        }
+    }
+
+    program1 := unsafe.Slice((*int)(unsafe.Pointer(&program[0])), len(program))
+    fmt.Println(program1)
+    fmt.Println(labels)
+
+    if err := scanner.Err(); err != nil {
+        fmt.Println(err)
+    }
+}
+
 func main() {
+    if 1 == 1 {
+        compile(os.Args[1])
+        return
+    }
     cpu := new(CPU)
     cpu.memory = make([]Word, MemorySize)
     cpu.pc = 0
@@ -218,7 +311,7 @@ func main() {
             value := cpu.memory[addr]
             cpu.Push(value)
             break
-        case JUMP_CON:
+        case JMPC:
             cond, addr, _ := cpu.Pop2()
             if cond != 0 {
                 cpu.pc = int(addr)
