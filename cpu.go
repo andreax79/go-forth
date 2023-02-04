@@ -74,30 +74,49 @@ var Names = map[string]Word {
 var prog = []Word{
 // PUSH, 79, PUSH, 1, ADD, PUSH, 40, DIV, INC, PUSH, 3, EQ,
 PUSH, 10,
-PUSH, 31, STORE,
+PUSH, 0, STORE,
 
-PUSH, 31, LOAD, // 5
+PUSH, 0, LOAD, // 5
 DEC,
 DUP,
-PUSH, 31, STORE,
+PUSH, 0, STORE,
 
-PUSH, 30, LOAD,
+PUSH, 1, LOAD,
 INC,
-PUSH, 30, STORE,
+INC,
+PUSH, 1, STORE,
 
 PUSH, 0, GREAT,
 PUSH, 5, JMPC,
 
-PUSH, 30, LOAD,
-PUSH, 5,
-SWAP,
+// PUSH, 30, LOAD,
+// PUSH, 5,
+// SWAP,
+HLT,
+}
+
+type Halt struct {
+}
+
+func (e *Halt) Error() string {
+	return "Halt"
 }
 
 type CPU struct {
     memory []Word // [MemorySize]int
     pc int
     sp int
-    ds int
+    rs int
+}
+
+func NewCPU(prog []Word) (cpu *CPU) {
+    cpu = new(CPU)
+    cpu.memory = make([]Word, MemorySize)
+    cpu.pc = 0
+    cpu.sp = cpu.Size() - 1
+    cpu.rs = len(prog)
+    copy(cpu.memory, prog)
+    return cpu
 }
 
 func (cpu *CPU) Size() int {
@@ -140,6 +159,120 @@ func (cpu *CPU) Pop2() (Word, Word, error) {
         return 0, 0, err
     }
     return v1, v2, nil
+}
+
+func (cpu *CPU) PrintMemory() {
+    memory := unsafe.Slice((*int)(unsafe.Pointer(&cpu.memory[0])), len(cpu.memory))
+    fmt.Println(memory)
+}
+
+func (cpu *CPU) Eval() (error) {
+    op := cpu.memory[cpu.pc]
+    fmt.Printf("pc: %4d sp: %4d op: %s\n", cpu.pc, cpu.sp, op.String())
+
+    cpu.pc++
+    switch op {
+    case NOP:
+        break
+    case HLT:
+        return new(Halt)
+    case PUSH:
+        cpu.Push(cpu.memory[cpu.pc])
+        cpu.pc++
+        break
+    case ZERO:
+        cpu.Push(0)
+        break
+    case DROP: /* Discards the top stack item */
+        cpu.Pop()
+        break
+    case DUP: /* Duplicates the top stack item */
+        cpu.Dup()
+        break
+    case SWAP: /* Reverses the top two stack items */
+        v1, v2, _ := cpu.Pop2()
+        cpu.Push(v2)
+        cpu.Push(v1)
+        break
+    case ADD:
+        v1, v2, _ := cpu.Pop2()
+        cpu.Push(v1 + v2)
+        break
+    case SUB:
+        v1, v2, _ := cpu.Pop2()
+        cpu.Push(v1 - v2)
+        break
+    case MUL:
+        v1, v2, _ := cpu.Pop2()
+        cpu.Push(v1 * v2)
+        break
+    case DIV:
+        v1, v2, _ := cpu.Pop2()
+        cpu.Push(v1 / v2)
+        break
+    case INC: /* Increment by 1 */
+        v1, _ := cpu.Pop()
+        cpu.Push(v1 + 1)
+        break
+    case DEC: /* Decrement by 1 */
+        v1, _ := cpu.Pop()
+        cpu.Push(v1 - 1)
+        break
+    case AND:
+        v1, v2, _ := cpu.Pop2()
+        cpu.Push(v1 & v2)
+        break
+    case OR:
+        v1, v2, _ := cpu.Pop2()
+        cpu.Push(v1 | v2)
+        break
+    case XOR:
+        v1, v2, _ := cpu.Pop2()
+        cpu.Push(v1 ^ v2)
+        break
+    case EQ: /* Compare Equal */
+        v1, v2, _ := cpu.Pop2()
+        cpu.PushBool(v1 == v2)
+        break
+    case NOT_EQ: /* Compare for Not Equal */
+        v1, v2, _ := cpu.Pop2()
+        cpu.PushBool(v1 != v2)
+        break
+    case EQ_GREAT: /* Compare for Greater Or Equal */
+        v1, v2, _ := cpu.Pop2()
+        cpu.PushBool(v1 >= v2)
+        break
+    case GREAT: /* Compare for Greater */
+        v1, v2, _ := cpu.Pop2()
+        cpu.PushBool(v1 > v2)
+        break
+    case EQ_LESS: /* Compare for Equal or Less */
+        v1, v2, _ := cpu.Pop2()
+        cpu.PushBool(v1 <= v2)
+        break
+    case LESS: /* Compare for Less */
+        v1, v2, _ := cpu.Pop2()
+        cpu.PushBool(v1 < v2)
+        break
+    case STORE:
+        value, addr, _ := cpu.Pop2()
+        cpu.memory[int(addr) + cpu.rs] = value
+        break
+    case LOAD:
+        addr, _ := cpu.Pop()
+        value := cpu.memory[int(addr) + cpu.rs]
+        cpu.Push(value)
+        break
+    case JMPC:
+        cond, addr, _ := cpu.Pop2()
+        if cond != 0 {
+            cpu.pc = int(addr)
+        }
+    }
+    /*if cpu.pc >= len(prog) {
+        break
+    }*/
+    return nil
 }
 
 // https://www.bernhard-baehr.de/pdp8e/pal8.html
@@ -201,128 +334,16 @@ func compile(filename string) {
 }
 
 func main() {
-    if 1 == 1 {
+    /*if 1 == 1 {
         compile(os.Args[1])
         return
-    }
-    cpu := new(CPU)
-    cpu.memory = make([]Word, MemorySize)
-    cpu.pc = 0
-    cpu.sp = cpu.Size() - 1
-    cpu.ds = len(prog)
-    copy(cpu.memory, prog)
-    // fmt.Println(prog)
+    }*/
+    cpu := NewCPU(prog)
     for {
-        op := prog[cpu.pc]
-        fmt.Printf("pc: %4d sp: %4d op: %s\n", cpu.pc, cpu.sp, op.String())
-
-        cpu.pc++
-        switch op {
-        case NOP:
-            break
-        case HLT:
-            fmt.Println(cpu.memory)
-            return
-        case PUSH:
-            cpu.Push(prog[cpu.pc])
-            cpu.pc++
-            break
-        case ZERO:
-            cpu.Push(0)
-            break
-        case DROP: /* Discards the top stack item */
-            cpu.Pop()
-            break
-        case DUP: /* Duplicates the top stack item */
-            cpu.Dup()
-            break
-        case SWAP: /* Reverses the top two stack items */
-            v1, v2, _ := cpu.Pop2()
-            cpu.Push(v2)
-            cpu.Push(v1)
-            break
-        case ADD:
-            v1, v2, _ := cpu.Pop2()
-            cpu.Push(v1 + v2)
-            break
-        case SUB:
-            v1, v2, _ := cpu.Pop2()
-            cpu.Push(v1 - v2)
-            break
-        case MUL:
-            v1, v2, _ := cpu.Pop2()
-            cpu.Push(v1 * v2)
-            break
-        case DIV:
-            v1, v2, _ := cpu.Pop2()
-            cpu.Push(v1 / v2)
-            break
-        case INC: /* Increment by 1 */
-            v1, _ := cpu.Pop()
-            cpu.Push(v1 + 1)
-            break
-        case DEC: /* Decrement by 1 */
-            v1, _ := cpu.Pop()
-            cpu.Push(v1 - 1)
-            break
-        case AND:
-            v1, v2, _ := cpu.Pop2()
-            cpu.Push(v1 & v2)
-            break
-        case OR:
-            v1, v2, _ := cpu.Pop2()
-            cpu.Push(v1 | v2)
-            break
-        case XOR:
-            v1, v2, _ := cpu.Pop2()
-            cpu.Push(v1 ^ v2)
-            break
-        case EQ: /* Compare Equal */
-            v1, v2, _ := cpu.Pop2()
-            cpu.PushBool(v1 == v2)
-            break
-        case NOT_EQ: /* Compare for Not Equal */
-            v1, v2, _ := cpu.Pop2()
-            cpu.PushBool(v1 != v2)
-            break
-        case EQ_GREAT: /* Compare for Greater Or Equal */
-            v1, v2, _ := cpu.Pop2()
-            cpu.PushBool(v1 >= v2)
-            break
-        case GREAT: /* Compare for Greater */
-            v1, v2, _ := cpu.Pop2()
-            cpu.PushBool(v1 > v2)
-            break
-        case EQ_LESS: /* Compare for Equal or Less */
-            v1, v2, _ := cpu.Pop2()
-            cpu.PushBool(v1 <= v2)
-            break
-        case LESS: /* Compare for Less */
-            v1, v2, _ := cpu.Pop2()
-            cpu.PushBool(v1 < v2)
-            break
-        case STORE:
-            value, addr, _ := cpu.Pop2()
-            cpu.memory[addr] = value
-            // cpu.Push(value)
-            break
-        case LOAD:
-            addr, _ := cpu.Pop()
-            value := cpu.memory[addr]
-            cpu.Push(value)
-            break
-        case JMPC:
-            cond, addr, _ := cpu.Pop2()
-            if cond != 0 {
-                cpu.pc = int(addr)
-            }
-        }
-        if cpu.pc >= len(prog) {
+        err := cpu.Eval()
+        if err != nil {
             break
         }
     }
-    memory := unsafe.Slice((*int)(unsafe.Pointer(&cpu.memory[0])), len(cpu.memory))
-    fmt.Println(memory)
-    // fmt.Println(cpu.memory)
-    // fmt.Println(cpu.memory[cpu.sp+1])
+    cpu.PrintMemory()
 }
