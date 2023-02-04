@@ -2,14 +2,19 @@ package main
 
 import (
     "fmt"
+    "unsafe"
 )
 
-const MemorySize = 32
+const MemorySize = 64
+
+type Word int
+//go:generate stringer -type=Word
 
 const (
-    NOP int = iota
+    NOP Word = iota
     HLT
     PUSH    /* Push data onto stack */
+    ZERO    /* Push 0 onto stack */
     DROP    /* Discards the top stack item */
     DUP     /* Duplicates the top stack item */
     SWAP    /* Reverses the top two stack items */
@@ -35,38 +40,40 @@ const (
 
 
 // var prog = []int{ PUSH, 79, PUSH, 1, ADD, PUSH, 40, DIV, HLT}
-var prog = []int{
+var prog = []Word{
 // PUSH, 79, PUSH, 1, ADD, PUSH, 40, DIV, INC, PUSH, 3, EQ,
 PUSH, 10,
-PUSH, 3, STORE,
+PUSH, 31, STORE,
 
-PUSH, 3, LOAD, // 5
+PUSH, 31, LOAD, // 5
 DEC,
 DUP,
-PUSH, 3, STORE,
+PUSH, 31, STORE,
 
-PUSH, 0, LOAD,
+PUSH, 30, LOAD,
 INC,
-PUSH, 0, STORE,
+PUSH, 30, STORE,
 
 PUSH, 0, GREAT,
 PUSH, 5, JUMP_CON,
 
-PUSH, 0, LOAD,
+PUSH, 30, LOAD,
 PUSH, 5,
 SWAP,
 }
 
 type CPU struct {
-    memory [MemorySize]int
+    memory []Word // [MemorySize]int
+    pc int
     sp int
+    ds int
 }
 
 func (cpu *CPU) Size() int {
     return len(cpu.memory)
 }
 
-func (cpu *CPU) Push(value int) (error) {
+func (cpu *CPU) Push(value Word) (error) {
     cpu.memory[cpu.sp] = value
     cpu.sp-- // TODO out of stack
     return nil
@@ -80,7 +87,7 @@ func (cpu *CPU) PushBool(value bool) (error) {
     }
 }
 
-func (cpu *CPU) Pop() (int, error) {
+func (cpu *CPU) Pop() (Word, error) {
     cpu.sp++ // TODO out of stack
     value := cpu.memory[cpu.sp]
     return value, nil
@@ -91,9 +98,9 @@ func (cpu *CPU) Dup() (error) {
     return cpu.Push(value)
 }
 
-func (cpu *CPU) Pop2() (int, int, error) {
-    var v1 int
-    var v2 int
+func (cpu *CPU) Pop2() (Word, Word, error) {
+    var v1 Word
+    var v2 Word
     var err error
     if v2, err = cpu.Pop(); err != nil {
         return 0, 0, err
@@ -105,17 +112,18 @@ func (cpu *CPU) Pop2() (int, int, error) {
 }
 
 func main() {
-    var pc int = 0
     cpu := new(CPU)
+    cpu.memory = make([]Word, MemorySize)
+    cpu.pc = 0
     cpu.sp = cpu.Size() - 1
-    fmt.Println("ciao")
-    fmt.Println(prog)
+    cpu.ds = len(prog)
+    copy(cpu.memory, prog)
+    // fmt.Println(prog)
     for {
-        op := prog[pc]
-        fmt.Printf("op: %d\n", op)
-        fmt.Printf("pc: %d\n", pc)
+        op := prog[cpu.pc]
+        fmt.Printf("pc: %4d sp: %4d op: %s\n", cpu.pc, cpu.sp, op.String())
 
-        pc++
+        cpu.pc++
         switch op {
         case NOP:
             break
@@ -123,8 +131,11 @@ func main() {
             fmt.Println(cpu.memory)
             return
         case PUSH:
-            cpu.Push(prog[pc])
-            pc++
+            cpu.Push(prog[cpu.pc])
+            cpu.pc++
+            break
+        case ZERO:
+            cpu.Push(0)
             break
         case DROP: /* Discards the top stack item */
             cpu.Pop()
@@ -210,13 +221,15 @@ func main() {
         case JUMP_CON:
             cond, addr, _ := cpu.Pop2()
             if cond != 0 {
-                pc = addr
+                cpu.pc = int(addr)
             }
         }
-        if pc >= len(prog) {
+        if cpu.pc >= len(prog) {
             break
         }
     }
-    fmt.Println(cpu.memory)
+    memory := unsafe.Slice((*int)(unsafe.Pointer(&cpu.memory[0])), len(cpu.memory))
+    fmt.Println(memory)
+    // fmt.Println(cpu.memory)
     // fmt.Println(cpu.memory[cpu.sp+1])
 }
