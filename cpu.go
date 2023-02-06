@@ -9,7 +9,7 @@ import (
     "strconv"
 )
 
-const MemorySize = 64
+const MemorySize = 128
 
 type Word int
 //go:generate stringer -type=Word
@@ -40,6 +40,8 @@ const (
     JMPC  /* Jump if condition */
     STORE
     LOAD
+    GET_FP
+    SET_FP
 )
 
 var Names = map[string]Word {
@@ -69,32 +71,6 @@ var Names = map[string]Word {
     "LOAD": LOAD,
 }
 
-
-// var prog = []int{ PUSH, 79, PUSH, 1, ADD, PUSH, 40, DIV, HLT}
-var prog = []Word{
-// PUSH, 79, PUSH, 1, ADD, PUSH, 40, DIV, INC, PUSH, 3, EQ,
-PUSH, 10,
-PUSH, 0, STORE,
-
-PUSH, 0, LOAD, // 5
-DEC,
-DUP,
-PUSH, 0, STORE,
-
-PUSH, 1, LOAD,
-INC,
-INC,
-PUSH, 1, STORE,
-
-PUSH, 0, GREAT,
-PUSH, 5, JMPC,
-
-// PUSH, 30, LOAD,
-// PUSH, 5,
-// SWAP,
-HLT,
-}
-
 type Halt struct {
 }
 
@@ -104,9 +80,10 @@ func (e *Halt) Error() string {
 
 type CPU struct {
     memory []Word // [MemorySize]int
-    pc int
-    sp int
-    rs int
+    pc int  // Program counter
+    sp int  // Stack pointer (top of the stack)
+    fp int // Frame pointer?
+    rs int // Result zeroStack pointer?
 }
 
 func NewCPU(prog []Word) (cpu *CPU) {
@@ -115,6 +92,7 @@ func NewCPU(prog []Word) (cpu *CPU) {
     cpu.pc = 0
     cpu.sp = cpu.Size() - 1
     cpu.rs = len(prog)
+    cpu.fp = cpu.rs
     copy(cpu.memory, prog)
     return cpu
 }
@@ -168,7 +146,8 @@ func (cpu *CPU) PrintMemory() {
 
 func (cpu *CPU) Eval() (error) {
     op := cpu.memory[cpu.pc]
-    fmt.Printf("pc: %4d sp: %4d op: %s\n", cpu.pc, cpu.sp, op.String())
+    // fmt.Printf("pc: %4d sp: %4d op: %s\n", cpu.pc, cpu.sp, op.String())
+    fmt.Printf("pc: %4d sp: %4d fp: %4d op: %s\n", cpu.pc, cpu.sp, cpu.fp, op.String())
 
     cpu.pc++
     switch op {
@@ -268,6 +247,13 @@ func (cpu *CPU) Eval() (error) {
         if cond != 0 {
             cpu.pc = int(addr)
         }
+    case GET_FP:
+        cpu.Push(Word(cpu.fp))
+        break
+    case SET_FP:
+        addr, _ := cpu.Pop()
+        cpu.fp = int(addr)
+        break
     }
     /*if cpu.pc >= len(prog) {
         break
@@ -276,14 +262,16 @@ func (cpu *CPU) Eval() (error) {
 }
 
 // https://www.bernhard-baehr.de/pdp8e/pal8.html
-func compile(filename string) {
+func compile(filename string) ([]Word, error) {
     pc := 0
     program := make([]Word, 0)
     labels := map[string]int{}
+    variables := map[string]int{}
+    lastVariable := 0
     file, err := os.Open(filename)
     if err != nil {
         fmt.Println(err)
-        return
+        return nil, err
     }
     defer file.Close()
     scanner := bufio.NewScanner(file)
@@ -297,24 +285,44 @@ func compile(filename string) {
             if strings.HasPrefix(token, "/") { // Start of comment. The rest of the current line is ignored.
                 break
             }
+            if strings.HasPrefix(token, "@") { // Variable
+                variable := strings.ToUpper(strings.TrimPrefix(token, "@"))
+                addr, exists := variables[variable]
+                if ! exists { // New variable
+                    addr = lastVariable
+                    lastVariable++
+                    variables[variable] = addr
+                    fmt.Printf("%04d ", pc)
+                    fmt.Println(GET_FP, PUSH, 1, ADD, SET_FP)
+                    // FP++
+                    program = append(program, GET_FP, PUSH, 1, ADD, SET_FP)
+                    pc += 5
+                }
+                fmt.Printf("%04d ", pc)
+                fmt.Println(PUSH, addr)
+                program = append(program, PUSH, Word(addr))
+                pc += 2
+                continue
+            }
             if strings.HasSuffix(token, ",") { // Define a symbol with the value of the current location counter (used to define labels)
                 label := strings.ToUpper(strings.TrimSuffix(token, ","))
                 labels[label] = pc
                 continue
             }
             fmt.Printf("%04d ", pc)
-            if c, exists := Names[token]; exists {
+            if c, exists := Names[token]; exists { // Token
                 fmt.Println(Word(c))
                 program = append(program, Word(c))
                 pc++
-            } else if c, exists := labels[token]; exists {
-                program = append(program, Word(c))
+            } else if c, exists := labels[token]; exists { // Label
+                program = append(program, PUSH, Word(c))
+                fmt.Printf("PUSH %d (%s)\n", c, token)
                 pc++
-            } else {
+            } else { // Push
                 value, err := strconv.Atoi(token)
                 if err != nil {
                     fmt.Println(token, err)
-                    return
+                    return nil, err
                 }
                 pc += 2
                 program = append(program, PUSH)
@@ -331,13 +339,11 @@ func compile(filename string) {
     if err := scanner.Err(); err != nil {
         fmt.Println(err)
     }
+    return program, nil
 }
 
 func main() {
-    /*if 1 == 1 {
-        compile(os.Args[1])
-        return
-    }*/
+    prog, _ := compile(os.Args[1])
     cpu := NewCPU(prog)
     for {
         err := cpu.Eval()

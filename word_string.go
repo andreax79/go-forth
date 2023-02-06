@@ -33,11 +33,13 @@ func _() {
 	_ = x[JMPC-22]
 	_ = x[STORE-23]
 	_ = x[LOAD-24]
+	_ = x[GET_FP-25]
+	_ = x[SET_FP-26]
 }
 
-const _Word_name = "NOPHLTPUSHZERODROPDUPSWAPADDSUBMULDIVINCDECANDORXOREQNOT_EQEQ_GREATGREATEQ_LESSLESSJMPCSTORELOAD"
+const _Word_name = "NOPHLTPUSHZERODROPDUPSWAPADDSUBMULDIVINCDECANDORXOREQNOT_EQEQ_GREATGREATEQ_LESSLESSJMPCSTORELOADGET_FPSET_FP"
 
-var _Word_index = [...]uint8{0, 3, 6, 10, 14, 18, 21, 25, 28, 31, 34, 37, 40, 43, 46, 48, 51, 53, 59, 67, 72, 79, 83, 87, 92, 96}
+var _Word_index = [...]uint8{0, 3, 6, 10, 14, 18, 21, 25, 28, 31, 34, 37, 40, 43, 46, 48, 51, 53, 59, 67, 72, 79, 83, 87, 92, 96, 102, 108}
 
 func (i Word) String() string {
 	if i < 0 || i >= Word(len(_Word_index)-1) {
