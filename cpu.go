@@ -360,36 +360,15 @@ func compile(filename string) ([]Word, error) {
                 labels[label] = pc
                 continue
             }
-            fmt.Printf("%04d ", pc)
-/*            if token == "CALL" {
-                var code = []Word{
-                    GET_RSP, GET_RSP, STORE_ABS, INC_RSP, // store RSP
-                    GET_RBP, GET_RSP, STORE_ABS, INC_RSP, // store RBP
-                    GET_PC, GET_RSP, STORE_ABS, INC_RSP, // store PC
-                    GET_RSP, SET_RBP, // rbp := rsp (new rbp)
-                    DROP,
-                }
-                program = append(program, code...)
-                pc = pc + len(code)
-
-            } else if token == "RET" {
-                var code = []Word{
-                    GET_RBP, DEC, DEC, DEC, LOAD_ABS, SET_RSP, //
-                    GET_RSP, INC, LOAD_ABS, SET_RBP, // rbp := old rbp
-                    GET_RSP, INC, INC, LOAD_ABS, PUSH, 15+18, ADD, SET_PC, // rbp := old rbp
-                }
-                program = append(program, code...)
-                pc = pc + len(code)
-
-            } else */ if c, exists := Names[token]; exists { // Token
-                fmt.Println(Word(c))
+            if c, exists := Names[token]; exists { // Token
+                fmt.Printf("%04d %s\n", pc, Word(c))
                 var code = []Word{ Word(c) }
                 program = append(program, code...)
                 pc = pc + len(code)
 
             } else if c, exists := labels[token]; exists { // Label
                 program = append(program, PUSH, Word(c))
-                fmt.Printf("PUSH %d (%s)\n", c, token)
+                fmt.Printf("%04d PUSH %d (%s)\n", pc, c, token)
                 pc++
 
             } else { // Push
@@ -401,7 +380,7 @@ func compile(filename string) ([]Word, error) {
                 var code = []Word{ PUSH, Word(value) }
                 program = append(program, code...)
                 pc = pc + len(code)
-                fmt.Printf("PUSH %d\n", value)
+                fmt.Printf("%04d PUSH %d\n", pc, value)
             }
         }
     }
