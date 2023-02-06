@@ -39,9 +39,19 @@ const (
     LESS      /* Compare for Less */
     JMPC  /* Jump if condition */
     STORE
+    STORE_ABS
     LOAD
-    GET_FP
-    SET_FP
+    LOAD_ABS
+    GET_RSP
+    INC_RSP
+    SET_RSP
+    GET_RBP
+    INC_RBP
+    SET_RBP
+    GET_PC
+    SET_PC
+    CALL
+    RET
 )
 
 var Names = map[string]Word {
@@ -69,6 +79,8 @@ var Names = map[string]Word {
     "JMPC": JMPC,
     "STORE": STORE,
     "LOAD": LOAD,
+    "CALL": CALL,
+    "RET": RET,
 }
 
 type Halt struct {
@@ -82,8 +94,8 @@ type CPU struct {
     memory []Word // [MemorySize]int
     pc int  // Program counter
     sp int  // Stack pointer (top of the stack)
-    fp int // Frame pointer?
-    rs int // Result zeroStack pointer?
+    rsp int // Return stack pointer
+    rbp int // Return stack base
 }
 
 func NewCPU(prog []Word) (cpu *CPU) {
@@ -91,8 +103,8 @@ func NewCPU(prog []Word) (cpu *CPU) {
     cpu.memory = make([]Word, MemorySize)
     cpu.pc = 0
     cpu.sp = cpu.Size() - 1
-    cpu.rs = len(prog)
-    cpu.fp = cpu.rs
+    cpu.rbp = len(prog)
+    cpu.rsp = cpu.rbp
     copy(cpu.memory, prog)
     return cpu
 }
@@ -147,7 +159,7 @@ func (cpu *CPU) PrintMemory() {
 func (cpu *CPU) Eval() (error) {
     op := cpu.memory[cpu.pc]
     // fmt.Printf("pc: %4d sp: %4d op: %s\n", cpu.pc, cpu.sp, op.String())
-    fmt.Printf("pc: %4d sp: %4d fp: %4d op: %s\n", cpu.pc, cpu.sp, cpu.fp, op.String())
+    fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %s\n", cpu.pc, cpu.sp, cpu.rbp, cpu.rsp, op.String())
 
     cpu.pc++
     switch op {
@@ -235,29 +247,68 @@ func (cpu *CPU) Eval() (error) {
         break
     case STORE:
         value, addr, _ := cpu.Pop2()
-        cpu.memory[int(addr) + cpu.rs] = value
+        cpu.memory[int(addr) + cpu.rbp] = value
         break
+    case STORE_ABS:
+        value, addr, _ := cpu.Pop2()
+        cpu.memory[int(addr)] = value
     case LOAD:
         addr, _ := cpu.Pop()
-        value := cpu.memory[int(addr) + cpu.rs]
+        value := cpu.memory[int(addr) + cpu.rbp]
         cpu.Push(value)
         break
+    case LOAD_ABS:
+        addr, _ := cpu.Pop()
+        value := cpu.memory[int(addr)]
+        fmt.Println("LOAD_ABS: ---", int(addr), int(value))
+        cpu.Push(value)
     case JMPC:
         cond, addr, _ := cpu.Pop2()
         if cond != 0 {
             cpu.pc = int(addr)
         }
-    case GET_FP:
-        cpu.Push(Word(cpu.fp))
+    case GET_RSP:
+        cpu.Push(Word(cpu.rsp))
         break
-    case SET_FP:
+    case INC_RSP:
+        cpu.rsp++
+        break
+    case SET_RSP:
         addr, _ := cpu.Pop()
-        cpu.fp = int(addr)
+        cpu.rsp = int(addr)
+        break
+    case GET_RBP:
+        cpu.Push(Word(cpu.rbp))
+        break
+    case INC_RBP:
+        cpu.rbp++
+        break
+    case SET_RBP:
+        addr, _ := cpu.Pop()
+        cpu.rbp = int(addr)
+        break
+    case GET_PC:
+        cpu.Push(Word(cpu.pc))
+        break
+    case SET_PC:
+        addr, _ := cpu.Pop()
+        cpu.pc = int(addr)
+        break
+    case CALL:
+        addr, _ := cpu.Pop()
+        cpu.memory[cpu.rsp] = Word(cpu.rsp) // store rsp
+        cpu.memory[cpu.rsp + 1] = Word(cpu.rbp) // store rbp
+        cpu.memory[cpu.rsp + 2] = Word(cpu.pc) // store pc
+        cpu.rbp = cpu.rsp + 3
+        cpu.rsp = cpu.rbp
+        cpu.pc = int(addr)
+        break
+    case RET:
+        cpu.pc = int(cpu.memory[cpu.rsp - 1]) // return
+        cpu.rbp = int(cpu.memory[cpu.rsp - 2]) // restore rbp
+        cpu.rsp = int(cpu.memory[cpu.rsp - 3]) // restore rsp
         break
     }
-    /*if cpu.pc >= len(prog) {
-        break
-    }*/
     return nil
 }
 
@@ -292,16 +343,16 @@ func compile(filename string) ([]Word, error) {
                     addr = lastVariable
                     lastVariable++
                     variables[variable] = addr
-                    fmt.Printf("%04d ", pc)
-                    fmt.Println(GET_FP, PUSH, 1, ADD, SET_FP)
-                    // FP++
-                    program = append(program, GET_FP, PUSH, 1, ADD, SET_FP)
-                    pc += 5
+                    // RSP++
+                    var code = []Word{ INC_RSP }
+                    program = append(program, code...)
+                    pc += len(code)
+                    fmt.Printf("%04d %s\n", pc, code[0])
                 }
-                fmt.Printf("%04d ", pc)
-                fmt.Println(PUSH, addr)
-                program = append(program, PUSH, Word(addr))
-                pc += 2
+                fmt.Printf("%04d %s %d\n", pc, PUSH, addr)
+                var code = []Word{ PUSH,Word(addr) }
+                program = append(program, code...)
+                pc += len(code)
                 continue
             }
             if strings.HasSuffix(token, ",") { // Define a symbol with the value of the current location counter (used to define labels)
@@ -310,23 +361,46 @@ func compile(filename string) ([]Word, error) {
                 continue
             }
             fmt.Printf("%04d ", pc)
-            if c, exists := Names[token]; exists { // Token
+/*            if token == "CALL" {
+                var code = []Word{
+                    GET_RSP, GET_RSP, STORE_ABS, INC_RSP, // store RSP
+                    GET_RBP, GET_RSP, STORE_ABS, INC_RSP, // store RBP
+                    GET_PC, GET_RSP, STORE_ABS, INC_RSP, // store PC
+                    GET_RSP, SET_RBP, // rbp := rsp (new rbp)
+                    DROP,
+                }
+                program = append(program, code...)
+                pc = pc + len(code)
+
+            } else if token == "RET" {
+                var code = []Word{
+                    GET_RBP, DEC, DEC, DEC, LOAD_ABS, SET_RSP, //
+                    GET_RSP, INC, LOAD_ABS, SET_RBP, // rbp := old rbp
+                    GET_RSP, INC, INC, LOAD_ABS, PUSH, 15+18, ADD, SET_PC, // rbp := old rbp
+                }
+                program = append(program, code...)
+                pc = pc + len(code)
+
+            } else */ if c, exists := Names[token]; exists { // Token
                 fmt.Println(Word(c))
-                program = append(program, Word(c))
-                pc++
+                var code = []Word{ Word(c) }
+                program = append(program, code...)
+                pc = pc + len(code)
+
             } else if c, exists := labels[token]; exists { // Label
                 program = append(program, PUSH, Word(c))
                 fmt.Printf("PUSH %d (%s)\n", c, token)
                 pc++
+
             } else { // Push
                 value, err := strconv.Atoi(token)
                 if err != nil {
                     fmt.Println(token, err)
                     return nil, err
                 }
-                pc += 2
-                program = append(program, PUSH)
-                program = append(program, Word(value))
+                var code = []Word{ PUSH, Word(value) }
+                program = append(program, code...)
+                pc = pc + len(code)
                 fmt.Printf("PUSH %d\n", value)
             }
         }
@@ -343,7 +417,11 @@ func compile(filename string) ([]Word, error) {
 }
 
 func main() {
-    prog, _ := compile(os.Args[1])
+    prog, err := compile(os.Args[1])
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
     cpu := NewCPU(prog)
     for {
         err := cpu.Eval()

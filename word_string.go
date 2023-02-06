@@ -32,14 +32,24 @@ func _() {
 	_ = x[LESS-21]
 	_ = x[JMPC-22]
 	_ = x[STORE-23]
-	_ = x[LOAD-24]
-	_ = x[GET_FP-25]
-	_ = x[SET_FP-26]
+	_ = x[STORE_ABS-24]
+	_ = x[LOAD-25]
+	_ = x[LOAD_ABS-26]
+	_ = x[GET_RSP-27]
+	_ = x[INC_RSP-28]
+	_ = x[SET_RSP-29]
+	_ = x[GET_RBP-30]
+	_ = x[INC_RBP-31]
+	_ = x[SET_RBP-32]
+	_ = x[GET_PC-33]
+	_ = x[SET_PC-34]
+	_ = x[CALL-35]
+	_ = x[RET-36]
 }
 
-const _Word_name = "NOPHLTPUSHZERODROPDUPSWAPADDSUBMULDIVINCDECANDORXOREQNOT_EQEQ_GREATGREATEQ_LESSLESSJMPCSTORELOADGET_FPSET_FP"
+const _Word_name = "NOPHLTPUSHZERODROPDUPSWAPADDSUBMULDIVINCDECANDORXOREQNOT_EQEQ_GREATGREATEQ_LESSLESSJMPCSTORESTORE_ABSLOADLOAD_ABSGET_RSPINC_RSPSET_RSPGET_RBPINC_RBPSET_RBPGET_PCSET_PCCALLRET"
 
-var _Word_index = [...]uint8{0, 3, 6, 10, 14, 18, 21, 25, 28, 31, 34, 37, 40, 43, 46, 48, 51, 53, 59, 67, 72, 79, 83, 87, 92, 96, 102, 108}
+var _Word_index = [...]uint8{0, 3, 6, 10, 14, 18, 21, 25, 28, 31, 34, 37, 40, 43, 46, 48, 51, 53, 59, 67, 72, 79, 83, 87, 92, 101, 105, 113, 120, 127, 134, 141, 148, 155, 161, 167, 171, 174}
 
 func (i Word) String() string {
 	if i < 0 || i >= Word(len(_Word_index)-1) {
