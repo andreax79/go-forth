@@ -28,6 +28,9 @@ const (
     DIV
     INC     /* Increment by 1*/
     DEC     /* Decrement by 1 */
+    MAX     /* Leave greater of two numbers */
+    MIN     /* Leave lesser of two numbers */
+    ABS     /* Absolute value */
     AND
     OR
     XOR
@@ -67,6 +70,9 @@ var Names = map[string]Word {
     "MUL": DIV,
     "INC": INC,
     "DEC": DEC,
+    "MAX": MAX,
+    "MIN": MIN,
+    "ABS": ABS,
     "AND": AND,
     "OR": OR,
     "XOR": XOR,
@@ -208,6 +214,30 @@ func (cpu *CPU) Eval() (error) {
     case DEC: /* Decrement by 1 */
         v1, _ := cpu.Pop()
         cpu.Push(v1 - 1)
+        break
+    case MAX:
+        v1, v2, _ := cpu.Pop2()
+        if v1 > v2 {
+            cpu.Push(v1)
+        } else {
+            cpu.Push(v2)
+        }
+        break
+    case MIN:
+        v1, v2, _ := cpu.Pop2()
+        if v1 < v2 {
+            cpu.Push(v1)
+        } else {
+            cpu.Push(v2)
+        }
+        break
+    case ABS:
+        v1, _ := cpu.Pop()
+        if v1 < 0 {
+            cpu.Push(-v1)
+        } else {
+            cpu.Push(v1)
+        }
         break
     case AND:
         v1, v2, _ := cpu.Pop2()
