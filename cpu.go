@@ -4,9 +4,6 @@ import (
     "os"
     "fmt"
     "unsafe"
-    "bufio"
-    "strings"
-    "strconv"
 )
 
 const MemorySize = 128
@@ -15,36 +12,61 @@ type Word int
 //go:generate stringer -type=Word
 
 const (
-    NOP Word = iota
-    HLT
+    HLT Word = iota
+    NOP
+    EMIT
+
+    /* Stack manipulation */
     PUSH    /* Push data onto stack */
     ZERO    /* Push 0 onto stack */
-    DROP    /* Discards the top stack item */
     DUP     /* Duplicates the top stack item */
+    CDUP    /* ?DUP - Duplicate only if non-zero */
+    DROP    /* Discards the top stack item */
     SWAP    /* Reverses the top two stack items */
-    ADD
-    SUB     /* Subtraction */
-    MUL
-    DIV
+    // OVER /* Make copy of second item on top */
+    // ROT  /* Rotate third item to top */
+    // PICK /* Copy n-th item to too */
+    // ROLL
+    // DEPTH /* Count number of items on stack */
+
+    /* Arithmetic */
+    ADD     /* Add */
+    SUB     /* Subtract */
+    MUL     /* Multiply */
+    DIV     /* Divide */
     INC     /* Increment by 1*/
     DEC     /* Decrement by 1 */
     MAX     /* Leave greater of two numbers */
     MIN     /* Leave lesser of two numbers */
     ABS     /* Absolute value */
-    AND
-    OR
-    XOR
+    MOD     /* Modulo */
+
+    /* Logical */
+    AND     /* Bitwise and */
+    OR      /* Bitwise or */
+    XOR     /* Bitwise xor */
+    NOT     /* Reverse true value */
+
+    /* Comparison */
     EQ        /* Compare Equal */
     NOT_EQ    /* Compare for Not Equal */
     EQ_GREAT  /* Compare for Greater Or Equal */
     GREAT     /* Compare for Greater */
     EQ_LESS   /* Compare for Equal or Less */
     LESS      /* Compare for Less */
-    JMPC  /* Jump if condition */
+
+    /* Control and subroutines */
+    JMPC      /* Jump if condition */
+    CALL
+    RET
+
+    /* Memory */
     STORE
     STORE_ABS
     LOAD
     LOAD_ABS
+
+    /* Registers */
     GET_RSP
     INC_RSP
     SET_RSP
@@ -53,41 +75,7 @@ const (
     SET_RBP
     GET_PC
     SET_PC
-    CALL
-    RET
 )
-
-var Names = map[string]Word {
-    "NOP": NOP,
-    "HLT": HLT,
-    // "PUSH": PUSH,
-    "ZERO": ZERO,
-    "DROP": DROP,
-    "DUP": DUP,
-    "SWAP": SWAP,
-    "ADD": ADD,
-    "SUB": SUB,
-    "MUL": DIV,
-    "INC": INC,
-    "DEC": DEC,
-    "MAX": MAX,
-    "MIN": MIN,
-    "ABS": ABS,
-    "AND": AND,
-    "OR": OR,
-    "XOR": XOR,
-    "=": EQ,
-    "<>": NOT_EQ,
-    ">": GREAT,
-    ">=": EQ_GREAT,
-    "<": LESS,
-    "<=": EQ_LESS,
-    "JMPC": JMPC,
-    "STORE": STORE,
-    "LOAD": LOAD,
-    "CALL": CALL,
-    "RET": RET,
-}
 
 type Halt struct {
 }
@@ -133,14 +121,24 @@ func (cpu *CPU) PushBool(value bool) (error) {
     }
 }
 
+func (cpu *CPU) Get() (Word, error) {
+    value := cpu.memory[cpu.sp + 1] // TODO out of stack
+    return value, nil
+}
+
 func (cpu *CPU) Pop() (Word, error) {
     cpu.sp++ // TODO out of stack
     value := cpu.memory[cpu.sp]
+    cpu.memory[cpu.sp] = Word(0) // TODO - TEMP for debugging
     return value, nil
 }
 
 func (cpu *CPU) Dup() (error) {
-    value := cpu.memory[cpu.sp + 1]
+    var value Word
+    var err error
+    if value, err = cpu.Get(); err != nil {
+        return err
+    }
     return cpu.Push(value)
 }
 
@@ -163,6 +161,8 @@ func (cpu *CPU) PrintMemory() {
 }
 
 func (cpu *CPU) Eval() (error) {
+    var v1 Word
+    var v2 Word
     op := cpu.memory[cpu.pc]
     // fmt.Printf("pc: %4d sp: %4d op: %s\n", cpu.pc, cpu.sp, op.String())
     fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %s\n", cpu.pc, cpu.sp, cpu.rbp, cpu.rsp, op.String())
@@ -177,6 +177,10 @@ func (cpu *CPU) Eval() (error) {
         cpu.Push(cpu.memory[cpu.pc])
         cpu.pc++
         break
+    case EMIT:
+        v1, _ = cpu.Pop()
+        fmt.Printf(">>>> %d\n", int(v1))
+        break
     case ZERO:
         cpu.Push(0)
         break
@@ -186,37 +190,43 @@ func (cpu *CPU) Eval() (error) {
     case DUP: /* Duplicates the top stack item */
         cpu.Dup()
         break
+    case CDUP: /* Duplicates the top stack item */
+        v1, _ = cpu.Get()
+        if v1 != 0 {
+            cpu.Dup()
+        }
+        break
     case SWAP: /* Reverses the top two stack items */
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.Push(v2)
         cpu.Push(v1)
         break
     case ADD:
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.Push(v1 + v2)
         break
     case SUB:
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.Push(v1 - v2)
         break
     case MUL:
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.Push(v1 * v2)
         break
     case DIV:
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.Push(v1 / v2)
         break
     case INC: /* Increment by 1 */
-        v1, _ := cpu.Pop()
+        v1, _ = cpu.Pop()
         cpu.Push(v1 + 1)
         break
     case DEC: /* Decrement by 1 */
-        v1, _ := cpu.Pop()
+        v1, _ = cpu.Pop()
         cpu.Push(v1 - 1)
         break
     case MAX:
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         if v1 > v2 {
             cpu.Push(v1)
         } else {
@@ -224,7 +234,7 @@ func (cpu *CPU) Eval() (error) {
         }
         break
     case MIN:
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         if v1 < v2 {
             cpu.Push(v1)
         } else {
@@ -232,70 +242,78 @@ func (cpu *CPU) Eval() (error) {
         }
         break
     case ABS:
-        v1, _ := cpu.Pop()
+        v1, _ = cpu.Pop()
         if v1 < 0 {
             cpu.Push(-v1)
         } else {
             cpu.Push(v1)
         }
         break
+    case MOD:
+        v1, v2, _ = cpu.Pop2()
+        cpu.Push(v1 % v2)
+        break
     case AND:
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.Push(v1 & v2)
         break
     case OR:
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.Push(v1 | v2)
         break
     case XOR:
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.Push(v1 ^ v2)
         break
+    case NOT:
+        v1, _ = cpu.Pop()
+        cpu.PushBool(v1 == 0)
+        break
     case EQ: /* Compare Equal */
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.PushBool(v1 == v2)
         break
     case NOT_EQ: /* Compare for Not Equal */
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.PushBool(v1 != v2)
         break
     case EQ_GREAT: /* Compare for Greater Or Equal */
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.PushBool(v1 >= v2)
         break
     case GREAT: /* Compare for Greater */
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.PushBool(v1 > v2)
         break
     case EQ_LESS: /* Compare for Equal or Less */
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.PushBool(v1 <= v2)
         break
     case LESS: /* Compare for Less */
-        v1, v2, _ := cpu.Pop2()
+        v1, v2, _ = cpu.Pop2()
         cpu.PushBool(v1 < v2)
         break
     case STORE:
-        value, addr, _ := cpu.Pop2()
-        cpu.memory[int(addr) + cpu.rbp] = value
+        v1, v2, _ = cpu.Pop2()
+        cpu.memory[int(v2) + cpu.rbp] = v1
         break
     case STORE_ABS:
-        value, addr, _ := cpu.Pop2()
-        cpu.memory[int(addr)] = value
+        v1, v2, _ = cpu.Pop2()
+        cpu.memory[int(v2)] = v1
     case LOAD:
-        addr, _ := cpu.Pop()
-        value := cpu.memory[int(addr) + cpu.rbp]
+        v1, _ := cpu.Pop()
+        value := cpu.memory[int(v1) + cpu.rbp]
         cpu.Push(value)
         break
     case LOAD_ABS:
-        addr, _ := cpu.Pop()
-        value := cpu.memory[int(addr)]
-        fmt.Println("LOAD_ABS: ---", int(addr), int(value))
+        v1, _ := cpu.Pop()
+        value := cpu.memory[int(v1)]
+        fmt.Println("LOAD_ABS: ---", int(v1), int(value))
         cpu.Push(value)
     case JMPC:
-        cond, addr, _ := cpu.Pop2()
-        if cond != 0 {
-            cpu.pc = int(addr)
+        v1, v2, _ := cpu.Pop2()
+        if v1 != 0 {
+            cpu.pc = int(v2)
         }
     case GET_RSP:
         cpu.Push(Word(cpu.rsp))
@@ -304,8 +322,8 @@ func (cpu *CPU) Eval() (error) {
         cpu.rsp++
         break
     case SET_RSP:
-        addr, _ := cpu.Pop()
-        cpu.rsp = int(addr)
+        v1, _ = cpu.Pop()
+        cpu.rsp = int(v1)
         break
     case GET_RBP:
         cpu.Push(Word(cpu.rbp))
@@ -314,24 +332,24 @@ func (cpu *CPU) Eval() (error) {
         cpu.rbp++
         break
     case SET_RBP:
-        addr, _ := cpu.Pop()
-        cpu.rbp = int(addr)
+        v1, _ = cpu.Pop()
+        cpu.rbp = int(v1)
         break
     case GET_PC:
         cpu.Push(Word(cpu.pc))
         break
     case SET_PC:
-        addr, _ := cpu.Pop()
-        cpu.pc = int(addr)
+        v1, _ = cpu.Pop()
+        cpu.pc = int(v1)
         break
     case CALL:
-        addr, _ := cpu.Pop()
+        v1, _ = cpu.Pop()
         cpu.memory[cpu.rsp] = Word(cpu.rsp) // store rsp
         cpu.memory[cpu.rsp + 1] = Word(cpu.rbp) // store rbp
         cpu.memory[cpu.rsp + 2] = Word(cpu.pc) // store pc
         cpu.rbp = cpu.rsp + 3
         cpu.rsp = cpu.rbp
-        cpu.pc = int(addr)
+        cpu.pc = int(v1)
         break
     case RET:
         cpu.pc = int(cpu.memory[cpu.rsp - 1]) // return
@@ -342,91 +360,8 @@ func (cpu *CPU) Eval() (error) {
     return nil
 }
 
-// https://www.bernhard-baehr.de/pdp8e/pal8.html
-func compile(filename string) ([]Word, error) {
-    pc := 0
-    program := make([]Word, 0)
-    labels := map[string]int{}
-    variables := map[string]int{}
-    lastVariable := 0
-    file, err := os.Open(filename)
-    if err != nil {
-        fmt.Println(err)
-        return nil, err
-    }
-    defer file.Close()
-    scanner := bufio.NewScanner(file)
-    for scanner.Scan() {
-        t := scanner.Text()
-        if len(t) == 0 {
-            continue
-        }
-        for _, token := range strings.Fields(t) {
-            token = strings.ToUpper(token)
-            if strings.HasPrefix(token, "/") { // Start of comment. The rest of the current line is ignored.
-                break
-            }
-            if strings.HasPrefix(token, "@") { // Variable
-                variable := strings.ToUpper(strings.TrimPrefix(token, "@"))
-                addr, exists := variables[variable]
-                if ! exists { // New variable
-                    addr = lastVariable
-                    lastVariable++
-                    variables[variable] = addr
-                    // RSP++
-                    var code = []Word{ INC_RSP }
-                    program = append(program, code...)
-                    pc += len(code)
-                    fmt.Printf("%04d %s\n", pc, code[0])
-                }
-                fmt.Printf("%04d %s %d\n", pc, PUSH, addr)
-                var code = []Word{ PUSH,Word(addr) }
-                program = append(program, code...)
-                pc += len(code)
-                continue
-            }
-            if strings.HasSuffix(token, ",") { // Define a symbol with the value of the current location counter (used to define labels)
-                label := strings.ToUpper(strings.TrimSuffix(token, ","))
-                labels[label] = pc
-                continue
-            }
-            if c, exists := Names[token]; exists { // Token
-                fmt.Printf("%04d %s\n", pc, Word(c))
-                var code = []Word{ Word(c) }
-                program = append(program, code...)
-                pc = pc + len(code)
-
-            } else if c, exists := labels[token]; exists { // Label
-                program = append(program, PUSH, Word(c))
-                fmt.Printf("%04d PUSH %d (%s)\n", pc, c, token)
-                pc++
-
-            } else { // Push
-                value, err := strconv.Atoi(token)
-                if err != nil {
-                    fmt.Println(token, err)
-                    return nil, err
-                }
-                var code = []Word{ PUSH, Word(value) }
-                program = append(program, code...)
-                pc = pc + len(code)
-                fmt.Printf("%04d PUSH %d\n", pc, value)
-            }
-        }
-    }
-
-    program1 := unsafe.Slice((*int)(unsafe.Pointer(&program[0])), len(program))
-    fmt.Println(program1)
-    fmt.Println(labels)
-
-    if err := scanner.Err(); err != nil {
-        fmt.Println(err)
-    }
-    return program, nil
-}
-
 func main() {
-    prog, err := compile(os.Args[1])
+    prog, err := Compile(os.Args[1])
     if err != nil {
         fmt.Println(err)
         return
