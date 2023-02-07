@@ -160,12 +160,27 @@ func (cpu *CPU) PrintMemory() {
     fmt.Println(memory)
 }
 
+func (cpu *CPU) PrintRegisters() {
+    var op Word
+    op = cpu.memory[cpu.pc]
+    fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %s\n", cpu.pc, cpu.sp, cpu.rbp, cpu.rsp, op.String())
+}
+
+func (cpu *CPU) PrintStack() {
+    if cpu.sp+1 < len(cpu.memory) {
+        stack := unsafe.Slice((*int)(unsafe.Pointer(&cpu.memory[cpu.sp+1])), len(cpu.memory)-cpu.sp-1)
+        fmt.Println("stack: ", stack)
+    } else {
+        fmt.Println("stack:  []")
+    }
+}
+
 func (cpu *CPU) Eval() (error) {
     var v1 Word
     var v2 Word
     op := cpu.memory[cpu.pc]
-    // fmt.Printf("pc: %4d sp: %4d op: %s\n", cpu.pc, cpu.sp, op.String())
-    fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %s\n", cpu.pc, cpu.sp, cpu.rbp, cpu.rsp, op.String())
+    cpu.PrintRegisters()
+    cpu.PrintStack()
 
     cpu.pc++
     switch op {

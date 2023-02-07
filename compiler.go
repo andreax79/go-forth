@@ -25,7 +25,8 @@ var Symbols = map[string]Word {
     /* Arithmetic */
     "ADD": ADD,
     "SUB": SUB,
-    "MUL": DIV,
+    "MUL": MUL,
+    "DIV": DIV,
     "INC": INC,
     "DEC": DEC,
     "MAX": MAX,
@@ -57,34 +58,49 @@ var Symbols = map[string]Word {
     "LOAD": LOAD,
 }
 
+type Pass uint8
+const (
+	First Pass = 1
+	Second     = 2
+)
+
+// Compiler status
 type CompilerStatus struct {
     pc int
-    program []Word
-    labels map[string]int
-    variables map[string]int
-    lastVariableAddr int
+    code []Word // program code
+    labels map[string]int // map label names to addresses
+    variables map[string]int // map variable names to addresses
+    lastVariableAddr int // address of the last variable
+    pass Pass // pass number (First/Second)
 }
 
-func NewCompilerStatus() (status *CompilerStatus) {
+func NewCompilerStatus(pass Pass, labels map[string]int) (status *CompilerStatus) {
     status = new(CompilerStatus)
     status.pc = 0
-    status.program = make([]Word, 0)
-    status.labels = map[string]int{}
+    status.code = make([]Word, 0)
     status.variables = map[string]int{}
     status.lastVariableAddr = 0
+    status.pass = pass
+    if labels != nil {
+        status.labels = labels
+    } else {
+        status.labels = map[string]int{}
+    }
     return status
 }
 
+// Add compiled code
 func (status *CompilerStatus) AddCode(code ...Word) {
     if code[0] == PUSH && len(code) == 2 {
         fmt.Printf("%04d %s %d\n", status.pc, code[0], int(code[1]))
     } else {
         fmt.Printf("%04d %s\n", status.pc, strings.Trim(fmt.Sprint(code), "[]"))
     }
-    status.program = append(status.program, code...)
+    status.code = append(status.code, code...)
     status.pc += len(code)
 }
 
+// Compile a line
 func CompileLine(status *CompilerStatus, line string) (error) {
     for _, token := range strings.Fields(line) {
         token = strings.ToUpper(token)
@@ -109,7 +125,7 @@ func CompileLine(status *CompilerStatus, line string) (error) {
             status.labels[label] = status.pc
 
         } else if c, exists := Symbols[token]; exists { // Token
-            status.AddCode(Word(c))
+            status.AddCode(c)
 
         } else if c, exists := status.labels[token]; exists { // Label
             status.AddCode(PUSH, Word(c))
@@ -117,8 +133,11 @@ func CompileLine(status *CompilerStatus, line string) (error) {
         } else { // Push
             value, err := strconv.Atoi(token)
             if err != nil {
-                fmt.Println(token, err)
-                return err
+                // Ignore undefined labels during the first compilation pass
+                if status.pass != First {
+                    return err
+                }
+                value = 99 // TEMP
             }
             status.AddCode(PUSH, Word(value))
         }
@@ -126,16 +145,9 @@ func CompileLine(status *CompilerStatus, line string) (error) {
     return nil
 }
 
-
-func Compile(filename string) ([]Word, error) {
-    var status = NewCompilerStatus()
-    file, err := os.Open(filename)
-    if err != nil {
-        fmt.Println(err)
-        return nil, err
-    }
-    defer file.Close()
-
+// Execute a compilation pass
+func CompilePass(file *os.File, pass Pass, labels map[string]int) (*CompilerStatus, error) {
+    status := NewCompilerStatus(pass, labels)
     scanner := bufio.NewScanner(file)
     for scanner.Scan() {
         line := scanner.Text()
@@ -146,12 +158,33 @@ func Compile(filename string) ([]Word, error) {
             return nil, err
         }
     }
+    if err := scanner.Err(); err != nil {
+        return nil, err
+    }
+    return status, nil
+}
 
-    program1 := unsafe.Slice((*int)(unsafe.Pointer(&status.program[0])), len(status.program))
+// Compile a program file and return the compiled code
+func Compile(filename string) ([]Word, error) {
+    file, err := os.Open(filename)
+    if err != nil {
+        return nil, err
+    }
+    defer file.Close()
+
+    // First pass
+    var status *CompilerStatus
+    if status, err = CompilePass(file, First, nil); err != nil {
+        return nil, err
+    }
+    // Second pass
+    file.Seek(0, 0) // rewind
+    if status, err = CompilePass(file, Second, status.labels); err != nil {
+        return nil, err
+    }
+
+    program1 := unsafe.Slice((*int)(unsafe.Pointer(&status.code[0])), len(status.code))
     fmt.Println(program1)
 
-    if err := scanner.Err(); err != nil {
-        fmt.Println(err)
-    }
-    return status.program, nil
+    return status.code, nil
 }
