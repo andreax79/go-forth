@@ -78,25 +78,25 @@ const (
 
 // Compiler status
 type CompilerStatus struct {
-    pc int
+    pc Addr
     code []Word // program code
-    labels map[string]int // map label names to addresses
-    variables map[string]int // map variable names to addresses
-    lastVariableAddr int // address of the last variable
+    labels map[string]Addr // map label names to addresses
+    variables map[string]Addr // map variable names to addresses
+    lastVariableAddr Addr // address of the last variable
     pass Pass // pass number (First/Second)
 }
 
-func NewCompilerStatus(pass Pass, labels map[string]int) (status *CompilerStatus) {
+func NewCompilerStatus(pass Pass, labels map[string]Addr) (status *CompilerStatus) {
     status = new(CompilerStatus)
     status.pc = 0
     status.code = make([]Word, 0)
-    status.variables = map[string]int{}
+    status.variables = map[string]Addr{}
     status.lastVariableAddr = 0
     status.pass = pass
     if labels != nil {
         status.labels = labels
     } else {
-        status.labels = map[string]int{}
+        status.labels = map[string]Addr{}
     }
     return status
 }
@@ -109,7 +109,7 @@ func (status *CompilerStatus) AddCode(code ...Word) {
         fmt.Printf("%04d %s\n", status.pc, strings.Trim(fmt.Sprint(code), "[]"))
     }
     status.code = append(status.code, code...)
-    status.pc += len(code)
+    status.pc += Addr(len(code))
 }
 
 // Compile a line
@@ -164,7 +164,7 @@ func CompileLine(status *CompilerStatus, line string) (error) {
 }
 
 // Execute a compilation pass
-func CompilePass(file *os.File, pass Pass, labels map[string]int) (*CompilerStatus, error) {
+func CompilePass(file *os.File, pass Pass, labels map[string]Addr) (*CompilerStatus, error) {
     status := NewCompilerStatus(pass, labels)
     scanner := bufio.NewScanner(file)
     for scanner.Scan() {

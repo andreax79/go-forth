@@ -8,6 +8,8 @@ import (
 
 const MemorySize = 128
 
+type Addr uint32
+
 type Word int
 //go:generate stringer -type=Word
 
@@ -86,18 +88,18 @@ func (e *Halt) Error() string {
 
 type CPU struct {
     memory []Word // [MemorySize]int
-    pc int  // Program counter
-    sp int  // Stack pointer (top of the stack)
-    rsp int // Return stack pointer
-    rbp int // Return stack base
+    pc Addr  // Program counter
+    sp Addr  // Stack pointer (top of the stack)
+    rsp Addr // Return stack pointer
+    rbp Addr // Return stack base
 }
 
 func NewCPU(prog []Word) (cpu *CPU) {
     cpu = new(CPU)
     cpu.memory = make([]Word, MemorySize)
     cpu.pc = 0
-    cpu.sp = cpu.Size() - 1
-    cpu.rbp = len(prog)
+    cpu.sp = Addr(cpu.Size() - 1)
+    cpu.rbp = Addr(len(prog))
     cpu.rsp = cpu.rbp
     copy(cpu.memory, prog)
     return cpu
@@ -167,8 +169,8 @@ func (cpu *CPU) PrintRegisters() {
 }
 
 func (cpu *CPU) PrintStack() {
-    if cpu.sp+1 < len(cpu.memory) {
-        stack := unsafe.Slice((*int)(unsafe.Pointer(&cpu.memory[cpu.sp+1])), len(cpu.memory)-cpu.sp-1)
+    if cpu.sp+1 < Addr(len(cpu.memory)) {
+        stack := unsafe.Slice((*int)(unsafe.Pointer(&cpu.memory[cpu.sp+1])), Addr(len(cpu.memory))-cpu.sp-1)
         fmt.Println("stack: ", stack)
     } else {
         fmt.Println("stack:  []")
@@ -310,14 +312,14 @@ func (cpu *CPU) Eval() (error) {
         break
     case STORE:
         v1, v2, _ = cpu.Pop2()
-        cpu.memory[int(v2) + cpu.rbp] = v1
+        cpu.memory[Addr(v2) + cpu.rbp] = v1
         break
     case STORE_ABS:
         v1, v2, _ = cpu.Pop2()
         cpu.memory[int(v2)] = v1
     case LOAD:
         v1, _ := cpu.Pop()
-        value := cpu.memory[int(v1) + cpu.rbp]
+        value := cpu.memory[Addr(v1) + cpu.rbp]
         cpu.Push(value)
         break
     case LOAD_ABS:
@@ -328,7 +330,7 @@ func (cpu *CPU) Eval() (error) {
     case JMPC:
         v1, v2, _ := cpu.Pop2()
         if v1 != 0 {
-            cpu.pc = int(v2)
+            cpu.pc = Addr(v2)
         }
     case GET_RSP:
         cpu.Push(Word(cpu.rsp))
@@ -338,7 +340,7 @@ func (cpu *CPU) Eval() (error) {
         break
     case SET_RSP:
         v1, _ = cpu.Pop()
-        cpu.rsp = int(v1)
+        cpu.rsp = Addr(v1)
         break
     case GET_RBP:
         cpu.Push(Word(cpu.rbp))
@@ -348,14 +350,14 @@ func (cpu *CPU) Eval() (error) {
         break
     case SET_RBP:
         v1, _ = cpu.Pop()
-        cpu.rbp = int(v1)
+        cpu.rbp = Addr(v1)
         break
     case GET_PC:
         cpu.Push(Word(cpu.pc))
         break
     case SET_PC:
         v1, _ = cpu.Pop()
-        cpu.pc = int(v1)
+        cpu.pc = Addr(v1)
         break
     case CALL:
         v1, _ = cpu.Pop()
@@ -364,12 +366,12 @@ func (cpu *CPU) Eval() (error) {
         cpu.memory[cpu.rsp + 2] = Word(cpu.pc) // store pc
         cpu.rbp = cpu.rsp + 3
         cpu.rsp = cpu.rbp
-        cpu.pc = int(v1)
+        cpu.pc = Addr(v1)
         break
     case RET:
-        cpu.pc = int(cpu.memory[cpu.rsp - 1]) // return
-        cpu.rbp = int(cpu.memory[cpu.rsp - 2]) // restore rbp
-        cpu.rsp = int(cpu.memory[cpu.rsp - 3]) // restore rsp
+        cpu.pc = Addr(cpu.memory[cpu.rsp - 1]) // return
+        cpu.rbp = Addr(cpu.memory[cpu.rsp - 2]) // restore rbp
+        cpu.rsp = Addr(cpu.memory[cpu.rsp - 3]) // restore rsp
         break
     }
     return nil
