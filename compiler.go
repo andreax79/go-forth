@@ -9,6 +9,12 @@ import (
     "strconv"
 )
 
+// Pseudo instructions
+const (
+    ADD_TWO Word = iota + 0xffff
+    SUB_TWO
+)
+
 var Symbols = map[string]Word {
     "HLT": HLT,
     "NOP": NOP,
@@ -23,12 +29,18 @@ var Symbols = map[string]Word {
     "SWAP": SWAP,
 
     /* Arithmetic */
+    "+": ADD,
     "ADD": ADD,
+    "-": SUB,
     "SUB": SUB,
+    "*": MUL,
     "MUL": MUL,
+    "/": DIV,
     "DIV": DIV,
-    "INC": INC,
-    "DEC": DEC,
+    "1+": ADD_ONE,
+    "1-": SUB_ONE,
+    "2+": ADD_TWO,
+    "2-": SUB_TWO,
     "MAX": MAX,
     "MIN": MIN,
     "ABS": ABS,
@@ -125,8 +137,14 @@ func CompileLine(status *CompilerStatus, line string) (error) {
             status.labels[label] = status.pc
 
         } else if c, exists := Symbols[token]; exists { // Token
-            status.AddCode(c)
-
+            switch c {
+                case ADD_TWO:
+                    status.AddCode(ADD_ONE, ADD_ONE)
+                case SUB_TWO:
+                    status.AddCode(SUB_ONE, SUB_ONE)
+                default:
+                    status.AddCode(c)
+            }
         } else if c, exists := status.labels[token]; exists { // Label
             status.AddCode(PUSH, Word(c))
 

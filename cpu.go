@@ -34,8 +34,8 @@ const (
     SUB     /* Subtract */
     MUL     /* Multiply */
     DIV     /* Divide */
-    INC     /* Increment by 1*/
-    DEC     /* Decrement by 1 */
+    ADD_ONE /* Increment by 1*/
+    SUB_ONE /* Decrement by 1 */
     MAX     /* Leave greater of two numbers */
     MIN     /* Leave lesser of two numbers */
     ABS     /* Absolute value */
@@ -232,11 +232,11 @@ func (cpu *CPU) Eval() (error) {
         v1, v2, _ = cpu.Pop2()
         cpu.Push(v1 / v2)
         break
-    case INC: /* Increment by 1 */
+    case ADD_ONE: /* Increment by 1 */
         v1, _ = cpu.Pop()
         cpu.Push(v1 + 1)
         break
-    case DEC: /* Decrement by 1 */
+    case SUB_ONE: /* Decrement by 1 */
         v1, _ = cpu.Pop()
         cpu.Push(v1 - 1)
         break

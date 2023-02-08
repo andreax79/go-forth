@@ -8,6 +8,8 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
+	_ = x[ADD_TWO-65535]
+	_ = x[SUB_TWO-65536]
 	_ = x[HLT-0]
 	_ = x[NOP-1]
 	_ = x[EMIT-2]
@@ -21,8 +23,8 @@ func _() {
 	_ = x[SUB-10]
 	_ = x[MUL-11]
 	_ = x[DIV-12]
-	_ = x[INC-13]
-	_ = x[DEC-14]
+	_ = x[ADD_ONE-13]
+	_ = x[SUB_ONE-14]
 	_ = x[MAX-15]
 	_ = x[MIN-16]
 	_ = x[ABS-17]
@@ -54,13 +56,24 @@ func _() {
 	_ = x[SET_PC-43]
 }
 
-const _Word_name = "HLTNOPEMITPUSHZERODUPCDUPDROPSWAPADDSUBMULDIVINCDECMAXMINABSMODANDORXORNOTEQNOT_EQEQ_GREATGREATEQ_LESSLESSJMPCCALLRETSTORESTORE_ABSLOADLOAD_ABSGET_RSPINC_RSPSET_RSPGET_RBPINC_RBPSET_RBPGET_PCSET_PC"
+const (
+	_Word_name_0 = "HLTNOPEMITPUSHZERODUPCDUPDROPSWAPADDSUBMULDIVADD_ONESUB_ONEMAXMINABSMODANDORXORNOTEQNOT_EQEQ_GREATGREATEQ_LESSLESSJMPCCALLRETSTORESTORE_ABSLOADLOAD_ABSGET_RSPINC_RSPSET_RSPGET_RBPINC_RBPSET_RBPGET_PCSET_PC"
+	_Word_name_1 = "ADD_TWOSUB_TWO"
+)
 
-var _Word_index = [...]uint8{0, 3, 6, 10, 14, 18, 21, 25, 29, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 68, 71, 74, 76, 82, 90, 95, 102, 106, 110, 114, 117, 122, 131, 135, 143, 150, 157, 164, 171, 178, 185, 191, 197}
+var (
+	_Word_index_0 = [...]uint8{0, 3, 6, 10, 14, 18, 21, 25, 29, 33, 36, 39, 42, 45, 52, 59, 62, 65, 68, 71, 74, 76, 79, 82, 84, 90, 98, 103, 110, 114, 118, 122, 125, 130, 139, 143, 151, 158, 165, 172, 179, 186, 193, 199, 205}
+	_Word_index_1 = [...]uint8{0, 7, 14}
+)
 
 func (i Word) String() string {
-	if i < 0 || i >= Word(len(_Word_index)-1) {
+	switch {
+	case 0 <= i && i <= 43:
+		return _Word_name_0[_Word_index_0[i]:_Word_index_0[i+1]]
+	case 65535 <= i && i <= 65536:
+		i -= 65535
+		return _Word_name_1[_Word_index_1[i]:_Word_index_1[i+1]]
+	default:
 		return "Word(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Word_name[_Word_index[i]:_Word_index[i+1]]
 }
