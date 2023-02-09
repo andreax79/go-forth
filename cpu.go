@@ -6,7 +6,7 @@ import (
 	_ "unsafe"
 )
 
-const MemorySize = 128
+const DataStackTop = 1<<16 - 1
 
 type Addr uint32
 
@@ -97,12 +97,12 @@ type CPU struct {
 
 func NewCPU(prog []Word) (cpu *CPU) {
 	cpu = new(CPU)
-	cpu.mmu = NewMMU(MemorySize)
+	cpu.mmu = NewMMU()
 	cpu.pc = 0
-	cpu.ds = NewStack(cpu.mmu, Addr(cpu.mmu.Size()-1))
+	cpu.ds = NewStack(cpu.mmu, DataStackTop)
 	cpu.rbp = Addr(len(prog))
 	cpu.rsp = cpu.rbp
-	copy(cpu.mmu.memory, prog)
+	cpu.mmu.WriteWords(0, prog)
 	return cpu
 }
 

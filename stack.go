@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
-	"unsafe"
+// "fmt"
+// "unsafe"
 )
 
 type Stack struct {
@@ -68,10 +68,10 @@ func (stack *Stack) Pop2() (Word, Word, error) {
 }
 
 func (stack *Stack) PrintStack() {
-	if stack.pointer < stack.origin {
-		stack := unsafe.Slice((*int)(unsafe.Pointer(&stack.mmu.memory[stack.pointer+1])), stack.origin-stack.pointer)
-		fmt.Println("stack: ", stack)
-	} else {
-		fmt.Println("stack:  []")
-	}
+	// if stack.pointer < stack.origin {
+	// 	stack := unsafe.Slice((*int)(unsafe.Pointer(&stack.mmu.memory[stack.pointer+1])), stack.origin-stack.pointer)
+	// 	fmt.Println("stack: ", stack)
+	// } else {
+	// 	fmt.Println("stack:  []")
+	// }
 }
