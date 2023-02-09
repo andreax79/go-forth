@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"unsafe"
+	_ "unsafe"
 )
 
 const MemorySize = 128
@@ -88,30 +88,26 @@ func (e *Halt) Error() string {
 }
 
 type CPU struct {
-	memory []Word // [MemorySize]int
-	pc     Addr   // Program counter
-	sp     Addr   // Stack pointer (top of the stack)
-	rsp    Addr   // Return stack pointer
-	rbp    Addr   // Return stack base
+	mmu *MMU // Memory Management Unit
+	pc  Addr // Program counter
+	sp  Addr // Stack pointer (top of the stack)
+	rsp Addr // Return stack pointer
+	rbp Addr // Return stack base
 }
 
 func NewCPU(prog []Word) (cpu *CPU) {
 	cpu = new(CPU)
-	cpu.memory = make([]Word, MemorySize)
+	cpu.mmu = NewMMU(MemorySize)
 	cpu.pc = 0
-	cpu.sp = Addr(cpu.Size() - 1)
+	cpu.sp = Addr(cpu.mmu.Size() - 1)
 	cpu.rbp = Addr(len(prog))
 	cpu.rsp = cpu.rbp
-	copy(cpu.memory, prog)
+	copy(cpu.mmu.memory, prog)
 	return cpu
 }
 
-func (cpu *CPU) Size() int {
-	return len(cpu.memory)
-}
-
 func (cpu *CPU) Push(value Word) error {
-	cpu.memory[cpu.sp] = value
+	cpu.mmu.WriteW(cpu.sp, value)
 	cpu.sp-- // TODO out of stack
 	return nil
 }
@@ -125,14 +121,14 @@ func (cpu *CPU) PushBool(value bool) error {
 }
 
 func (cpu *CPU) Get() (Word, error) {
-	value := cpu.memory[cpu.sp+1] // TODO out of stack
+	value := cpu.mmu.ReadW(cpu.sp + 1) // TODO out of stack
 	return value, nil
 }
 
 func (cpu *CPU) Pop() (Word, error) {
 	cpu.sp++ // TODO out of stack
-	value := cpu.memory[cpu.sp]
-	cpu.memory[cpu.sp] = Word(0) // TODO - TEMP for debugging
+	value := cpu.mmu.ReadW(cpu.sp)
+	cpu.mmu.WriteW(cpu.sp, 0) // TODO - TEMP for debugging
 	return value, nil
 }
 
@@ -158,30 +154,27 @@ func (cpu *CPU) Pop2() (Word, Word, error) {
 	return v1, v2, nil
 }
 
-func (cpu *CPU) PrintMemory() {
-	memory := unsafe.Slice((*int)(unsafe.Pointer(&cpu.memory[0])), len(cpu.memory))
-	fmt.Println(memory)
-}
-
 func (cpu *CPU) PrintRegisters() {
 	var op Word
-	op = cpu.memory[cpu.pc]
+	op = cpu.mmu.ReadW(cpu.pc)
 	fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %s\n", cpu.pc, cpu.sp, cpu.rbp, cpu.rsp, op.String())
 }
 
 func (cpu *CPU) PrintStack() {
-	if cpu.sp+1 < Addr(len(cpu.memory)) {
-		stack := unsafe.Slice((*int)(unsafe.Pointer(&cpu.memory[cpu.sp+1])), Addr(len(cpu.memory))-cpu.sp-1)
-		fmt.Println("stack: ", stack)
-	} else {
-		fmt.Println("stack:  []")
-	}
+	/*
+		if cpu.sp+1 < Addr(len(cpu.memory)) {
+			stack := unsafe.Slice((*int)(unsafe.Pointer(&cpu.memory[cpu.sp+1])), Addr(len(cpu.memory))-cpu.sp-1)
+			fmt.Println("stack: ", stack)
+		} else {
+			fmt.Println("stack:  []")
+		}
+	*/
 }
 
 func (cpu *CPU) Eval() error {
 	var v1 Word
 	var v2 Word
-	op := cpu.memory[cpu.pc]
+	op := cpu.mmu.ReadW(cpu.pc)
 	cpu.PrintRegisters()
 	cpu.PrintStack()
 
@@ -192,7 +185,7 @@ func (cpu *CPU) Eval() error {
 	case HLT:
 		return new(Halt)
 	case PUSH:
-		cpu.Push(cpu.memory[cpu.pc])
+		cpu.Push(cpu.mmu.ReadW(cpu.pc))
 		cpu.pc++
 		break
 	case EMIT:
@@ -313,19 +306,19 @@ func (cpu *CPU) Eval() error {
 		break
 	case STORE:
 		v1, v2, _ = cpu.Pop2()
-		cpu.memory[Addr(v2)+cpu.rbp] = v1
+		cpu.mmu.WriteW(Addr(v2)+cpu.rbp, v1)
 		break
 	case STORE_ABS:
 		v1, v2, _ = cpu.Pop2()
-		cpu.memory[int(v2)] = v1
+		cpu.mmu.WriteW(Addr(v2), v1)
 	case LOAD:
 		v1, _ := cpu.Pop()
-		value := cpu.memory[Addr(v1)+cpu.rbp]
+		value := cpu.mmu.ReadW(Addr(v1) + cpu.rbp)
 		cpu.Push(value)
 		break
 	case LOAD_ABS:
 		v1, _ := cpu.Pop()
-		value := cpu.memory[int(v1)]
+		value := cpu.mmu.ReadW(Addr(v1))
 		fmt.Println("LOAD_ABS: ---", int(v1), int(value))
 		cpu.Push(value)
 	case JMPC:
@@ -362,17 +355,17 @@ func (cpu *CPU) Eval() error {
 		break
 	case CALL:
 		v1, _ = cpu.Pop()
-		cpu.memory[cpu.rsp] = Word(cpu.rsp)   // store rsp
-		cpu.memory[cpu.rsp+1] = Word(cpu.rbp) // store rbp
-		cpu.memory[cpu.rsp+2] = Word(cpu.pc)  // store pc
+		cpu.mmu.WriteW(cpu.rsp, Word(cpu.rsp))   // store rsp
+		cpu.mmu.WriteW(cpu.rsp+1, Word(cpu.rbp)) // store rbp
+		cpu.mmu.WriteW(cpu.rsp+2, Word(cpu.pc))  // store pc
 		cpu.rbp = cpu.rsp + 3
 		cpu.rsp = cpu.rbp
 		cpu.pc = Addr(v1)
 		break
 	case RET:
-		cpu.pc = Addr(cpu.memory[cpu.rsp-1])  // return
-		cpu.rbp = Addr(cpu.memory[cpu.rsp-2]) // restore rbp
-		cpu.rsp = Addr(cpu.memory[cpu.rsp-3]) // restore rsp
+		cpu.pc = Addr(cpu.mmu.ReadW(cpu.rsp - 1))  // return
+		cpu.rbp = Addr(cpu.mmu.ReadW(cpu.rsp - 2)) // restore rbp
+		cpu.rsp = Addr(cpu.mmu.ReadW(cpu.rsp - 3)) // restore rsp
 		break
 	}
 	return nil
@@ -391,5 +384,5 @@ func main() {
 			break
 		}
 	}
-	cpu.PrintMemory()
+	cpu.mmu.PrintMemory()
 }
