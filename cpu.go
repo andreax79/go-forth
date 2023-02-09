@@ -88,87 +88,28 @@ func (e *Halt) Error() string {
 }
 
 type CPU struct {
-	mmu *MMU // Memory Management Unit
-	pc  Addr // Program counter
-	sp  Addr // Stack pointer (top of the stack)
-	rsp Addr // Return stack pointer
-	rbp Addr // Return stack base
+	mmu *MMU   // Memory Management Unit
+	pc  Addr   // Program counter
+	ds  *Stack // Data Stack
+	rsp Addr   // Return stack pointer
+	rbp Addr   // Return stack base
 }
 
 func NewCPU(prog []Word) (cpu *CPU) {
 	cpu = new(CPU)
 	cpu.mmu = NewMMU(MemorySize)
 	cpu.pc = 0
-	cpu.sp = Addr(cpu.mmu.Size() - 1)
+	cpu.ds = NewStack(cpu.mmu, Addr(cpu.mmu.Size()-1))
 	cpu.rbp = Addr(len(prog))
 	cpu.rsp = cpu.rbp
 	copy(cpu.mmu.memory, prog)
 	return cpu
 }
 
-func (cpu *CPU) Push(value Word) error {
-	cpu.mmu.WriteW(cpu.sp, value)
-	cpu.sp-- // TODO out of stack
-	return nil
-}
-
-func (cpu *CPU) PushBool(value bool) error {
-	if value {
-		return cpu.Push(1)
-	} else {
-		return cpu.Push(0)
-	}
-}
-
-func (cpu *CPU) Get() (Word, error) {
-	value := cpu.mmu.ReadW(cpu.sp + 1) // TODO out of stack
-	return value, nil
-}
-
-func (cpu *CPU) Pop() (Word, error) {
-	cpu.sp++ // TODO out of stack
-	value := cpu.mmu.ReadW(cpu.sp)
-	cpu.mmu.WriteW(cpu.sp, 0) // TODO - TEMP for debugging
-	return value, nil
-}
-
-func (cpu *CPU) Dup() error {
-	var value Word
-	var err error
-	if value, err = cpu.Get(); err != nil {
-		return err
-	}
-	return cpu.Push(value)
-}
-
-func (cpu *CPU) Pop2() (Word, Word, error) {
-	var v1 Word
-	var v2 Word
-	var err error
-	if v2, err = cpu.Pop(); err != nil {
-		return 0, 0, err
-	}
-	if v1, err = cpu.Pop(); err != nil {
-		return 0, 0, err
-	}
-	return v1, v2, nil
-}
-
 func (cpu *CPU) PrintRegisters() {
 	var op Word
 	op = cpu.mmu.ReadW(cpu.pc)
-	fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %s\n", cpu.pc, cpu.sp, cpu.rbp, cpu.rsp, op.String())
-}
-
-func (cpu *CPU) PrintStack() {
-	/*
-		if cpu.sp+1 < Addr(len(cpu.memory)) {
-			stack := unsafe.Slice((*int)(unsafe.Pointer(&cpu.memory[cpu.sp+1])), Addr(len(cpu.memory))-cpu.sp-1)
-			fmt.Println("stack: ", stack)
-		} else {
-			fmt.Println("stack:  []")
-		}
-	*/
+	fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %s\n", cpu.pc, cpu.ds.pointer, cpu.rbp, cpu.rsp, op.String())
 }
 
 func (cpu *CPU) Eval() error {
@@ -176,7 +117,7 @@ func (cpu *CPU) Eval() error {
 	var v2 Word
 	op := cpu.mmu.ReadW(cpu.pc)
 	cpu.PrintRegisters()
-	cpu.PrintStack()
+	cpu.ds.PrintStack()
 
 	cpu.pc++
 	switch op {
@@ -185,176 +126,176 @@ func (cpu *CPU) Eval() error {
 	case HLT:
 		return new(Halt)
 	case PUSH:
-		cpu.Push(cpu.mmu.ReadW(cpu.pc))
+		cpu.ds.Push(cpu.mmu.ReadW(cpu.pc))
 		cpu.pc++
 		break
 	case EMIT:
-		v1, _ = cpu.Pop()
+		v1, _ = cpu.ds.Pop()
 		fmt.Printf(">>>> %d\n", int(v1))
 		break
 	case ZERO:
-		cpu.Push(0)
+		cpu.ds.Push(0)
 		break
 	case DROP: /* Discards the top stack item */
-		cpu.Pop()
+		cpu.ds.Pop()
 		break
 	case DUP: /* Duplicates the top stack item */
-		cpu.Dup()
+		cpu.ds.Dup()
 		break
 	case CDUP: /* Duplicates the top stack item */
-		v1, _ = cpu.Get()
+		v1, _ = cpu.ds.Get()
 		if v1 != 0 {
-			cpu.Dup()
+			cpu.ds.Dup()
 		}
 		break
 	case SWAP: /* Reverses the top two stack items */
-		v1, v2, _ = cpu.Pop2()
-		cpu.Push(v2)
-		cpu.Push(v1)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.Push(v2)
+		cpu.ds.Push(v1)
 		break
 	case ADD:
-		v1, v2, _ = cpu.Pop2()
-		cpu.Push(v1 + v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.Push(v1 + v2)
 		break
 	case SUB:
-		v1, v2, _ = cpu.Pop2()
-		cpu.Push(v1 - v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.Push(v1 - v2)
 		break
 	case MUL:
-		v1, v2, _ = cpu.Pop2()
-		cpu.Push(v1 * v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.Push(v1 * v2)
 		break
 	case DIV:
-		v1, v2, _ = cpu.Pop2()
-		cpu.Push(v1 / v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.Push(v1 / v2)
 		break
 	case ADD_ONE: /* Increment by 1 */
-		v1, _ = cpu.Pop()
-		cpu.Push(v1 + 1)
+		v1, _ = cpu.ds.Pop()
+		cpu.ds.Push(v1 + 1)
 		break
 	case SUB_ONE: /* Decrement by 1 */
-		v1, _ = cpu.Pop()
-		cpu.Push(v1 - 1)
+		v1, _ = cpu.ds.Pop()
+		cpu.ds.Push(v1 - 1)
 		break
 	case MAX:
-		v1, v2, _ = cpu.Pop2()
+		v1, v2, _ = cpu.ds.Pop2()
 		if v1 > v2 {
-			cpu.Push(v1)
+			cpu.ds.Push(v1)
 		} else {
-			cpu.Push(v2)
+			cpu.ds.Push(v2)
 		}
 		break
 	case MIN:
-		v1, v2, _ = cpu.Pop2()
+		v1, v2, _ = cpu.ds.Pop2()
 		if v1 < v2 {
-			cpu.Push(v1)
+			cpu.ds.Push(v1)
 		} else {
-			cpu.Push(v2)
+			cpu.ds.Push(v2)
 		}
 		break
 	case ABS:
-		v1, _ = cpu.Pop()
+		v1, _ = cpu.ds.Pop()
 		if v1 < 0 {
-			cpu.Push(-v1)
+			cpu.ds.Push(-v1)
 		} else {
-			cpu.Push(v1)
+			cpu.ds.Push(v1)
 		}
 		break
 	case MOD:
-		v1, v2, _ = cpu.Pop2()
-		cpu.Push(v1 % v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.Push(v1 % v2)
 		break
 	case AND:
-		v1, v2, _ = cpu.Pop2()
-		cpu.Push(v1 & v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.Push(v1 & v2)
 		break
 	case OR:
-		v1, v2, _ = cpu.Pop2()
-		cpu.Push(v1 | v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.Push(v1 | v2)
 		break
 	case XOR:
-		v1, v2, _ = cpu.Pop2()
-		cpu.Push(v1 ^ v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.Push(v1 ^ v2)
 		break
 	case NOT:
-		v1, _ = cpu.Pop()
-		cpu.PushBool(v1 == 0)
+		v1, _ = cpu.ds.Pop()
+		cpu.ds.PushBool(v1 == 0)
 		break
 	case EQ: /* Compare Equal */
-		v1, v2, _ = cpu.Pop2()
-		cpu.PushBool(v1 == v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.PushBool(v1 == v2)
 		break
 	case NOT_EQ: /* Compare for Not Equal */
-		v1, v2, _ = cpu.Pop2()
-		cpu.PushBool(v1 != v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.PushBool(v1 != v2)
 		break
 	case EQ_GREAT: /* Compare for Greater Or Equal */
-		v1, v2, _ = cpu.Pop2()
-		cpu.PushBool(v1 >= v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.PushBool(v1 >= v2)
 		break
 	case GREAT: /* Compare for Greater */
-		v1, v2, _ = cpu.Pop2()
-		cpu.PushBool(v1 > v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.PushBool(v1 > v2)
 		break
 	case EQ_LESS: /* Compare for Equal or Less */
-		v1, v2, _ = cpu.Pop2()
-		cpu.PushBool(v1 <= v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.PushBool(v1 <= v2)
 		break
 	case LESS: /* Compare for Less */
-		v1, v2, _ = cpu.Pop2()
-		cpu.PushBool(v1 < v2)
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.PushBool(v1 < v2)
 		break
 	case STORE:
-		v1, v2, _ = cpu.Pop2()
+		v1, v2, _ = cpu.ds.Pop2()
 		cpu.mmu.WriteW(Addr(v2)+cpu.rbp, v1)
 		break
 	case STORE_ABS:
-		v1, v2, _ = cpu.Pop2()
+		v1, v2, _ = cpu.ds.Pop2()
 		cpu.mmu.WriteW(Addr(v2), v1)
 	case LOAD:
-		v1, _ := cpu.Pop()
+		v1, _ := cpu.ds.Pop()
 		value := cpu.mmu.ReadW(Addr(v1) + cpu.rbp)
-		cpu.Push(value)
+		cpu.ds.Push(value)
 		break
 	case LOAD_ABS:
-		v1, _ := cpu.Pop()
+		v1, _ := cpu.ds.Pop()
 		value := cpu.mmu.ReadW(Addr(v1))
 		fmt.Println("LOAD_ABS: ---", int(v1), int(value))
-		cpu.Push(value)
+		cpu.ds.Push(value)
 	case JMPC:
-		v1, v2, _ := cpu.Pop2()
+		v1, v2, _ := cpu.ds.Pop2()
 		if v1 != 0 {
 			cpu.pc = Addr(v2)
 		}
 	case GET_RSP:
-		cpu.Push(Word(cpu.rsp))
+		cpu.ds.Push(Word(cpu.rsp))
 		break
 	case INC_RSP:
 		cpu.rsp++
 		break
 	case SET_RSP:
-		v1, _ = cpu.Pop()
+		v1, _ = cpu.ds.Pop()
 		cpu.rsp = Addr(v1)
 		break
 	case GET_RBP:
-		cpu.Push(Word(cpu.rbp))
+		cpu.ds.Push(Word(cpu.rbp))
 		break
 	case INC_RBP:
 		cpu.rbp++
 		break
 	case SET_RBP:
-		v1, _ = cpu.Pop()
+		v1, _ = cpu.ds.Pop()
 		cpu.rbp = Addr(v1)
 		break
 	case GET_PC:
-		cpu.Push(Word(cpu.pc))
+		cpu.ds.Push(Word(cpu.pc))
 		break
 	case SET_PC:
-		v1, _ = cpu.Pop()
+		v1, _ = cpu.ds.Pop()
 		cpu.pc = Addr(v1)
 		break
 	case CALL:
-		v1, _ = cpu.Pop()
+		v1, _ = cpu.ds.Pop()
 		cpu.mmu.WriteW(cpu.rsp, Word(cpu.rsp))   // store rsp
 		cpu.mmu.WriteW(cpu.rsp+1, Word(cpu.rbp)) // store rbp
 		cpu.mmu.WriteW(cpu.rsp+2, Word(cpu.pc))  // store pc
