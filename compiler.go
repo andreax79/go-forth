@@ -14,6 +14,9 @@ import (
 const (
 	ADD_TWO Word = iota + 0xffff
 	SUB_TWO
+	ZERO_LESS
+	ZERO_EQ
+	ZERO_GREAT
 )
 
 var Symbols = map[string]Word{
@@ -63,6 +66,9 @@ var Symbols = map[string]Word{
 	">=": EQ_GREAT,
 	"<":  LESS,
 	"<=": EQ_LESS,
+	"0<": ZERO_LESS,
+	"0=": ZERO_EQ,
+	"0>": ZERO_GREAT,
 
 	/* Control and subroutines */
 	"JMPC": JMPC,
@@ -155,6 +161,12 @@ func CompileLine(status *CompilerStatus, line string) error {
 				err = status.AddCode(ADD_ONE, ADD_ONE)
 			case SUB_TWO:
 				err = status.AddCode(SUB_ONE, SUB_ONE)
+			case ZERO_LESS:
+				err = status.AddCode(PUSH, 0, LESS)
+			case ZERO_EQ:
+				err = status.AddCode(PUSH, 0, EQ)
+			case ZERO_GREAT:
+				err = status.AddCode(PUSH, 0, GREAT)
 			default:
 				err = status.AddCode(c)
 			}
