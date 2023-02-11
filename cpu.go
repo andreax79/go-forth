@@ -28,11 +28,11 @@ const (
 	CDUP /* ?DUP - Duplicate only if non-zero */
 	DROP /* Discards the top stack item */
 	SWAP /* Reverses the top two stack items */
-	// OVER /* Make copy of second item on top */
-	// ROT  /* Rotate third item to top */
+	OVER /* Make copy of second item on top */
+	ROT  /* Rotate third item to top */
 	// PICK /* Copy n-th item to too */
 	// ROLL
-	// DEPTH /* Count number of items on stack */
+	DEPTH /* Count number of items on stack */
 
 	/* Arithmetic */
 	ADD     /* Add */
@@ -119,6 +119,7 @@ func (cpu *CPU) PrintRegisters() {
 func (cpu *CPU) Eval() error {
 	var v1 Word
 	var v2 Word
+	var v3 Word
 	op := cpu.mmu.ReadW(cpu.pc)
 	cpu.PrintRegisters()
 
@@ -155,6 +156,21 @@ func (cpu *CPU) Eval() error {
 		v1, v2, _ = cpu.ds.Pop2()
 		cpu.ds.Push(v2)
 		cpu.ds.Push(v1)
+		break
+	case OVER: /* Push a copy of the second element on the stack */
+		v1, v2, _ = cpu.ds.Pop2()
+		cpu.ds.Push(v1)
+		cpu.ds.Push(v2)
+		cpu.ds.Push(v1)
+		break
+	case ROT: /* Rotate the third item to top */
+		v1, v2, _ = cpu.ds.Pop2()
+		v3, _ = cpu.ds.Pop()
+		cpu.ds.Push(v1)
+		cpu.ds.Push(v2)
+		cpu.ds.Push(v3)
+	case DEPTH: /* Count number of items on stack */
+		cpu.ds.Push(Word(cpu.ds.Size()))
 		break
 	case ADD:
 		v1, v2, _ = cpu.ds.Pop2()

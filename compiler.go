@@ -23,11 +23,14 @@ var Symbols = map[string]Word{
 
 	/* Stack manipulation */
 	// "PUSH": PUSH,
-	"ZERO": ZERO,
-	"DUP":  DUP,
-	"?DUP": CDUP,
-	"DROP": DROP,
-	"SWAP": SWAP,
+	"ZERO":  ZERO,
+	"DUP":   DUP,
+	"?DUP":  CDUP,
+	"DROP":  DROP,
+	"SWAP":  SWAP,
+	"OVER":  OVER,
+	"ROT":   ROT,
+	"DEPTH": DEPTH,
 
 	/* Arithmetic */
 	"+":   ADD,
