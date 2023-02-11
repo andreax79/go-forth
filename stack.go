@@ -1,8 +1,8 @@
 package main
 
 import (
-// "fmt"
-// "unsafe"
+	"fmt"
+	"strings"
 )
 
 type Stack struct {
@@ -20,8 +20,8 @@ func NewStack(mmu *MMU, origin Addr) (stack *Stack) {
 }
 
 func (stack *Stack) Push(value Word) error {
+	stack.pointer -= WordSize // TODO out of stack
 	stack.mmu.WriteW(stack.pointer, value)
-	stack.pointer-- // TODO out of stack
 	return nil
 }
 
@@ -34,14 +34,13 @@ func (stack *Stack) PushBool(value bool) error {
 }
 
 func (stack *Stack) Get() (Word, error) {
-	value := stack.mmu.ReadW(stack.pointer + 1) // TODO out of stack
+	value := stack.mmu.ReadW(stack.pointer) // TODO out of stack
 	return value, nil
 }
 
 func (stack *Stack) Pop() (Word, error) {
-	stack.pointer++ // TODO out of stack
 	value := stack.mmu.ReadW(stack.pointer)
-	stack.mmu.WriteW(stack.pointer, 0) // TODO - TEMP for debugging
+	stack.pointer += WordSize // TODO out of stack
 	return value, nil
 }
 
@@ -67,11 +66,15 @@ func (stack *Stack) Pop2() (Word, Word, error) {
 	return v1, v2, nil
 }
 
-func (stack *Stack) PrintStack() {
-	// if stack.pointer < stack.origin {
-	// 	stack := unsafe.Slice((*int)(unsafe.Pointer(&stack.mmu.memory[stack.pointer+1])), stack.origin-stack.pointer)
-	// 	fmt.Println("stack: ", stack)
-	// } else {
-	// 	fmt.Println("stack:  []")
-	// }
+func (stack *Stack) Size() Addr {
+	return (stack.origin - stack.pointer) / WordSize
+}
+
+func (stack *Stack) String() string {
+	var buf strings.Builder
+	fmt.Fprintf(&buf, "(%d) ", stack.Size())
+	for i := stack.pointer; i < stack.origin; i += WordSize {
+		fmt.Fprintf(&buf, "%d ", stack.mmu.ReadW(i))
+	}
+	return buf.String()
 }

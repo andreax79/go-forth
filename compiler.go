@@ -2,11 +2,12 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
-	"unsafe"
 )
 
 // Pseudo instructions
@@ -80,7 +81,7 @@ const (
 // Compiler status
 type CompilerStatus struct {
 	pc               Addr
-	code             []Word          // program code
+	buf              *bytes.Buffer   // program code
 	labels           map[string]Addr // map label names to addresses
 	variables        map[string]Addr // map variable names to addresses
 	lastVariableAddr Addr            // address of the last variable
@@ -90,7 +91,7 @@ type CompilerStatus struct {
 func NewCompilerStatus(pass Pass, labels map[string]Addr) (status *CompilerStatus) {
 	status = new(CompilerStatus)
 	status.pc = 0
-	status.code = make([]Word, 0)
+	status.buf = new(bytes.Buffer)
 	status.variables = map[string]Addr{}
 	status.lastVariableAddr = 0
 	status.pass = pass
@@ -102,19 +103,26 @@ func NewCompilerStatus(pass Pass, labels map[string]Addr) (status *CompilerStatu
 	return status
 }
 
-// Add compiled code
-func (status *CompilerStatus) AddCode(code ...Word) {
-	if code[0] == PUSH && len(code) == 2 {
-		fmt.Printf("%04d %s %d\n", status.pc, code[0], int(code[1]))
-	} else {
-		fmt.Printf("%04d %s\n", status.pc, strings.Trim(fmt.Sprint(code), "[]"))
+// Add compiled code to the program
+func (status *CompilerStatus) AddCode(code ...Word) error {
+	if status.pass == Second {
+		if code[0] == PUSH && len(code) == 2 {
+			fmt.Printf("%04d %s %d\n", status.pc, code[0], int(code[1]))
+		} else {
+			fmt.Printf("%04d %s\n", status.pc, strings.Trim(fmt.Sprint(code), "[]"))
+		}
 	}
-	status.code = append(status.code, code...)
-	status.pc += Addr(len(code))
+	err := binary.Write(status.buf, binary.LittleEndian, code)
+	if err != nil {
+		return err
+	}
+	status.pc += Addr(len(code)) * WordSize
+	return nil
 }
 
-// Compile a line
+// Compile a line, add compiled code to the program
 func CompileLine(status *CompilerStatus, line string) error {
+	var err error
 	for _, token := range strings.Fields(line) {
 		token = strings.ToUpper(token)
 		if strings.HasPrefix(token, "/") { // Start of comment. The rest of the current line is ignored.
@@ -126,12 +134,13 @@ func CompileLine(status *CompilerStatus, line string) error {
 			addr, exists := status.variables[variable]
 			if !exists { // New variable
 				addr = status.lastVariableAddr
-				status.lastVariableAddr++
+				status.lastVariableAddr += WordSize
 				status.variables[variable] = addr
-				status.AddCode(INC_RSP) // Increment rsp
+				if err = status.AddCode(INC_RSP); err != nil { // Increment rsp
+					return err
+				}
 			}
-			status.AddCode(PUSH, Word(addr))
-			continue
+			err = status.AddCode(PUSH, Word(addr))
 
 		} else if strings.HasSuffix(token, ":") { // Define a symbol with the value of the current location counter (used to define labels)
 			label := strings.TrimSuffix(token, ":")
@@ -140,14 +149,14 @@ func CompileLine(status *CompilerStatus, line string) error {
 		} else if c, exists := Symbols[token]; exists { // Token
 			switch c {
 			case ADD_TWO:
-				status.AddCode(ADD_ONE, ADD_ONE)
+				err = status.AddCode(ADD_ONE, ADD_ONE)
 			case SUB_TWO:
-				status.AddCode(SUB_ONE, SUB_ONE)
+				err = status.AddCode(SUB_ONE, SUB_ONE)
 			default:
-				status.AddCode(c)
+				err = status.AddCode(c)
 			}
 		} else if c, exists := status.labels[token]; exists { // Label
-			status.AddCode(PUSH, Word(c))
+			err = status.AddCode(PUSH, Word(c))
 
 		} else { // Push
 			value, err := strconv.Atoi(token)
@@ -156,9 +165,12 @@ func CompileLine(status *CompilerStatus, line string) error {
 				if status.pass != First {
 					return err
 				}
-				value = 99 // TEMP
+				value = -1 // TODO - test value
 			}
-			status.AddCode(PUSH, Word(value))
+			err = status.AddCode(PUSH, Word(value))
+		}
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -184,7 +196,7 @@ func CompilePass(file *os.File, pass Pass, labels map[string]Addr) (*CompilerSta
 }
 
 // Compile a program file and return the compiled code
-func Compile(filename string) ([]Word, error) {
+func Compile(filename string) ([]byte, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -201,9 +213,5 @@ func Compile(filename string) ([]Word, error) {
 	if status, err = CompilePass(file, Second, status.labels); err != nil {
 		return nil, err
 	}
-
-	program1 := unsafe.Slice((*int)(unsafe.Pointer(&status.code[0])), len(status.code))
-	fmt.Println(program1)
-
-	return status.code, nil
+	return status.buf.Bytes(), nil
 }

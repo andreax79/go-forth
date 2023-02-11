@@ -3,14 +3,16 @@ package main
 import (
 	"fmt"
 	"os"
-	_ "unsafe"
+	"unsafe"
 )
 
-const DataStackTop = 1<<16 - 1
+const DataStackTop = 1 << 16
 
 type Addr uint32
 
-type Word int
+type Word int32
+
+const WordSize = Addr(unsafe.Sizeof(Word(0)))
 
 //go:generate stringer -type=Word
 
@@ -95,21 +97,23 @@ type CPU struct {
 	rbp Addr   // Return stack base
 }
 
-func NewCPU(prog []Word) (cpu *CPU) {
+func NewCPU(prog []byte) (cpu *CPU) {
 	cpu = new(CPU)
 	cpu.mmu = NewMMU()
 	cpu.pc = 0
 	cpu.ds = NewStack(cpu.mmu, DataStackTop)
 	cpu.rbp = Addr(len(prog))
 	cpu.rsp = cpu.rbp
-	cpu.mmu.WriteWords(0, prog)
+	cpu.mmu.WriteBytes(0, prog)
 	return cpu
 }
 
 func (cpu *CPU) PrintRegisters() {
 	var op Word
 	op = cpu.mmu.ReadW(cpu.pc)
-	fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %s\n", cpu.pc, cpu.ds.pointer, cpu.rbp, cpu.rsp, op.String())
+	fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %-15s  stack: %s\n",
+		cpu.pc, cpu.ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.ds,
+	)
 }
 
 func (cpu *CPU) Eval() error {
@@ -117,9 +121,8 @@ func (cpu *CPU) Eval() error {
 	var v2 Word
 	op := cpu.mmu.ReadW(cpu.pc)
 	cpu.PrintRegisters()
-	cpu.ds.PrintStack()
 
-	cpu.pc++
+	cpu.pc += WordSize
 	switch op {
 	case NOP:
 		break
@@ -127,7 +130,7 @@ func (cpu *CPU) Eval() error {
 		return new(Halt)
 	case PUSH:
 		cpu.ds.Push(cpu.mmu.ReadW(cpu.pc))
-		cpu.pc++
+		cpu.pc += WordSize
 		break
 	case EMIT:
 		v1, _ = cpu.ds.Pop()
@@ -255,12 +258,13 @@ func (cpu *CPU) Eval() error {
 	case LOAD:
 		v1, _ := cpu.ds.Pop()
 		value := cpu.mmu.ReadW(Addr(v1) + cpu.rbp)
+		// fmt.Println("LOAD: ---", int(v1), int(value))
 		cpu.ds.Push(value)
 		break
 	case LOAD_ABS:
 		v1, _ := cpu.ds.Pop()
 		value := cpu.mmu.ReadW(Addr(v1))
-		fmt.Println("LOAD_ABS: ---", int(v1), int(value))
+		// fmt.Println("LOAD_ABS: ---", int(v1), int(value))
 		cpu.ds.Push(value)
 	case JMPC:
 		v1, v2, _ := cpu.ds.Pop2()
@@ -271,7 +275,7 @@ func (cpu *CPU) Eval() error {
 		cpu.ds.Push(Word(cpu.rsp))
 		break
 	case INC_RSP:
-		cpu.rsp++
+		cpu.rsp += WordSize
 		break
 	case SET_RSP:
 		v1, _ = cpu.ds.Pop()
@@ -281,7 +285,7 @@ func (cpu *CPU) Eval() error {
 		cpu.ds.Push(Word(cpu.rbp))
 		break
 	case INC_RBP:
-		cpu.rbp++
+		cpu.rbp += WordSize
 		break
 	case SET_RBP:
 		v1, _ = cpu.ds.Pop()
@@ -296,17 +300,17 @@ func (cpu *CPU) Eval() error {
 		break
 	case CALL:
 		v1, _ = cpu.ds.Pop()
-		cpu.mmu.WriteW(cpu.rsp, Word(cpu.rsp))   // store rsp
-		cpu.mmu.WriteW(cpu.rsp+1, Word(cpu.rbp)) // store rbp
-		cpu.mmu.WriteW(cpu.rsp+2, Word(cpu.pc))  // store pc
-		cpu.rbp = cpu.rsp + 3
+		cpu.mmu.WriteW(cpu.rsp, Word(cpu.rsp))            // store rsp
+		cpu.mmu.WriteW(cpu.rsp+1*WordSize, Word(cpu.rbp)) // store rbp
+		cpu.mmu.WriteW(cpu.rsp+2*WordSize, Word(cpu.pc))  // store pc
+		cpu.rbp = cpu.rsp + 3*WordSize
 		cpu.rsp = cpu.rbp
 		cpu.pc = Addr(v1)
 		break
 	case RET:
-		cpu.pc = Addr(cpu.mmu.ReadW(cpu.rsp - 1))  // return
-		cpu.rbp = Addr(cpu.mmu.ReadW(cpu.rsp - 2)) // restore rbp
-		cpu.rsp = Addr(cpu.mmu.ReadW(cpu.rsp - 3)) // restore rsp
+		cpu.pc = Addr(cpu.mmu.ReadW(cpu.rsp - 1*WordSize))  // return
+		cpu.rbp = Addr(cpu.mmu.ReadW(cpu.rsp - 2*WordSize)) // restore rbp
+		cpu.rsp = Addr(cpu.mmu.ReadW(cpu.rsp - 3*WordSize)) // restore rsp
 		break
 	}
 	return nil
