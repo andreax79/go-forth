@@ -1,4 +1,4 @@
-module cpu
+module github.com/andreax79/go-fcpu
 
 go 1.19
 

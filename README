@@ -1,0 +1,40 @@
+http://www.forth.org/Ting/Forth-for-the-Complete-Idiot/Forth-79-Handy-Reference.pdf
+
+
+
+- variables [OK]
+- 2 pass compiler [OK]
+- map registers ram?
+- word/bytes
+- asciiz
+
+- interrupt
+- mmu (virtual memory)
+
+- call/ret ==> accesso variabili 'globali' ?
+- I/O = emit
+- relative jump
+- nice syntax
+  - forth comments
+  - forth definitions
+
+------------------------
+Before subcall execution
+
+- caller local var
+- caller stack
+- arguments
+- fn addr
+
+------------------------
+During subcall execution
+
+- caller local var
+- caller stack
+- arguments
+
+- address to return <---- $data ($fp)
+- value of $data in the caller
+- local var
+- stack <- $sp
+

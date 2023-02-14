@@ -1,8 +1,7 @@
-package main
+package fcpu
 
 import (
 	"fmt"
-	"os"
 	"unsafe"
 )
 
@@ -114,6 +113,10 @@ func (cpu *CPU) PrintRegisters() {
 	fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %-15s  stack: %s\n",
 		cpu.pc, cpu.ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.ds,
 	)
+}
+
+func (cpu *CPU) PrintMemory() {
+	cpu.mmu.PrintMemory()
 }
 
 func (cpu *CPU) Eval() error {
@@ -330,20 +333,4 @@ func (cpu *CPU) Eval() error {
 		break
 	}
 	return nil
-}
-
-func main() {
-	prog, err := Compile(os.Args[1])
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	cpu := NewCPU(prog)
-	for {
-		err := cpu.Eval()
-		if err != nil {
-			break
-		}
-	}
-	cpu.mmu.PrintMemory()
 }

@@ -1,4 +1,4 @@
-package main
+package fcpu
 
 import (
 	_ "encoding/binary"
