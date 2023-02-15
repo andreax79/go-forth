@@ -14,9 +14,8 @@ type Word int32
 const WordSize = Addr(unsafe.Sizeof(Word(0)))
 
 //go:generate stringer -type=Word
-
 const (
-	HLT Word = iota
+	HLT Word = iota + 0x10000
 	NOP
 	EMIT
 

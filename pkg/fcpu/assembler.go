@@ -10,22 +10,13 @@ import (
 	"strings"
 )
 
-// Pseudo instructions
-const (
-	ADD_TWO Word = iota + 0xffff
-	SUB_TWO
-	ZERO_LESS
-	ZERO_EQ
-	ZERO_GREAT
-)
-
 var Symbols = map[string]Word{
 	"HLT":  HLT,
 	"NOP":  NOP,
 	"EMIT": EMIT,
 
 	/* Stack manipulation */
-	// "PUSH": PUSH,
+	"PUSH":  PUSH,
 	"ZERO":  ZERO,
 	"DUP":   DUP,
 	"?DUP":  CDUP,
@@ -46,8 +37,6 @@ var Symbols = map[string]Word{
 	"DIV": DIV,
 	"1+":  ADD_ONE,
 	"1-":  SUB_ONE,
-	"2+":  ADD_TWO,
-	"2-":  SUB_TWO,
 	"MAX": MAX,
 	"MIN": MIN,
 	"ABS": ABS,
@@ -66,9 +55,6 @@ var Symbols = map[string]Word{
 	">=": EQ_GREAT,
 	"<":  LESS,
 	"<=": EQ_LESS,
-	"0<": ZERO_LESS,
-	"0=": ZERO_EQ,
-	"0>": ZERO_GREAT,
 
 	/* Control and subroutines */
 	"JMPC": JMPC,
@@ -156,22 +142,10 @@ func CompileLine(status *CompilerStatus, line string) error {
 			status.labels[label] = status.pc
 
 		} else if c, exists := Symbols[token]; exists { // Token
-			switch c {
-			case ADD_TWO:
-				err = status.AddCode(ADD_ONE, ADD_ONE)
-			case SUB_TWO:
-				err = status.AddCode(SUB_ONE, SUB_ONE)
-			case ZERO_LESS:
-				err = status.AddCode(PUSH, 0, LESS)
-			case ZERO_EQ:
-				err = status.AddCode(PUSH, 0, EQ)
-			case ZERO_GREAT:
-				err = status.AddCode(PUSH, 0, GREAT)
-			default:
-				err = status.AddCode(c)
-			}
+			err = status.AddCode(c)
+
 		} else if c, exists := status.labels[token]; exists { // Label
-			err = status.AddCode(PUSH, Word(c))
+			err = status.AddCode(Word(c))
 
 		} else { // Push
 			value, err := strconv.Atoi(token)
@@ -182,7 +156,7 @@ func CompileLine(status *CompilerStatus, line string) error {
 				}
 				value = -1 // TODO - test value
 			}
-			err = status.AddCode(PUSH, Word(value))
+			err = status.AddCode(Word(value))
 		}
 		if err != nil {
 			return err

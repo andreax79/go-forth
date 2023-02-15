@@ -2,12 +2,21 @@ package main
 
 import (
 	"fmt"
-	"github.com/andreax79/go-fcpu/pkg/fcpu"
+	fcpu "github.com/andreax79/go-fcpu/pkg/fcpu"
+	forth "github.com/andreax79/go-fcpu/pkg/forth"
 	"os"
 )
 
 func main() {
-	prog, err := fcpu.Compile(os.Args[1])
+	var asmFilename string
+	var err error
+	var prog []byte
+	asmFilename, err = forth.Compile(os.Args[1])
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	prog, err = fcpu.Compile(asmFilename)
 	if err != nil {
 		fmt.Println(err)
 		return

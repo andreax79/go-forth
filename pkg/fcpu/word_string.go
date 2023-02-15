@@ -8,75 +8,63 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[ADD_TWO-65535]
-	_ = x[SUB_TWO-65536]
-	_ = x[HLT-0]
-	_ = x[NOP-1]
-	_ = x[EMIT-2]
-	_ = x[PUSH-3]
-	_ = x[ZERO-4]
-	_ = x[DUP-5]
-	_ = x[CDUP-6]
-	_ = x[DROP-7]
-	_ = x[SWAP-8]
-	_ = x[OVER-9]
-	_ = x[ROT-10]
-	_ = x[DEPTH-11]
-	_ = x[ADD-12]
-	_ = x[SUB-13]
-	_ = x[MUL-14]
-	_ = x[DIV-15]
-	_ = x[ADD_ONE-16]
-	_ = x[SUB_ONE-17]
-	_ = x[MAX-18]
-	_ = x[MIN-19]
-	_ = x[ABS-20]
-	_ = x[MOD-21]
-	_ = x[AND-22]
-	_ = x[OR-23]
-	_ = x[XOR-24]
-	_ = x[NOT-25]
-	_ = x[EQ-26]
-	_ = x[NOT_EQ-27]
-	_ = x[EQ_GREAT-28]
-	_ = x[GREAT-29]
-	_ = x[EQ_LESS-30]
-	_ = x[LESS-31]
-	_ = x[JMPC-32]
-	_ = x[CALL-33]
-	_ = x[RET-34]
-	_ = x[STORE-35]
-	_ = x[STORE_ABS-36]
-	_ = x[LOAD-37]
-	_ = x[LOAD_ABS-38]
-	_ = x[GET_RSP-39]
-	_ = x[INC_RSP-40]
-	_ = x[SET_RSP-41]
-	_ = x[GET_RBP-42]
-	_ = x[INC_RBP-43]
-	_ = x[SET_RBP-44]
-	_ = x[GET_PC-45]
-	_ = x[SET_PC-46]
+	_ = x[HLT-65536]
+	_ = x[NOP-65537]
+	_ = x[EMIT-65538]
+	_ = x[PUSH-65539]
+	_ = x[ZERO-65540]
+	_ = x[DUP-65541]
+	_ = x[CDUP-65542]
+	_ = x[DROP-65543]
+	_ = x[SWAP-65544]
+	_ = x[OVER-65545]
+	_ = x[ROT-65546]
+	_ = x[DEPTH-65547]
+	_ = x[ADD-65548]
+	_ = x[SUB-65549]
+	_ = x[MUL-65550]
+	_ = x[DIV-65551]
+	_ = x[ADD_ONE-65552]
+	_ = x[SUB_ONE-65553]
+	_ = x[MAX-65554]
+	_ = x[MIN-65555]
+	_ = x[ABS-65556]
+	_ = x[MOD-65557]
+	_ = x[AND-65558]
+	_ = x[OR-65559]
+	_ = x[XOR-65560]
+	_ = x[NOT-65561]
+	_ = x[EQ-65562]
+	_ = x[NOT_EQ-65563]
+	_ = x[EQ_GREAT-65564]
+	_ = x[GREAT-65565]
+	_ = x[EQ_LESS-65566]
+	_ = x[LESS-65567]
+	_ = x[JMPC-65568]
+	_ = x[CALL-65569]
+	_ = x[RET-65570]
+	_ = x[STORE-65571]
+	_ = x[STORE_ABS-65572]
+	_ = x[LOAD-65573]
+	_ = x[LOAD_ABS-65574]
+	_ = x[GET_RSP-65575]
+	_ = x[INC_RSP-65576]
+	_ = x[SET_RSP-65577]
+	_ = x[GET_RBP-65578]
+	_ = x[INC_RBP-65579]
+	_ = x[SET_RBP-65580]
+	_ = x[GET_PC-65581]
+	_ = x[SET_PC-65582]
 }
 
-const (
-	_Word_name_0 = "HLTNOPEMITPUSHZERODUPCDUPDROPSWAPOVERROTDEPTHADDSUBMULDIVADD_ONESUB_ONEMAXMINABSMODANDORXORNOTEQNOT_EQEQ_GREATGREATEQ_LESSLESSJMPCCALLRETSTORESTORE_ABSLOADLOAD_ABSGET_RSPINC_RSPSET_RSPGET_RBPINC_RBPSET_RBPGET_PCSET_PC"
-	_Word_name_1 = "ADD_TWOSUB_TWO"
-)
+const _Word_name = "HLTNOPEMITPUSHZERODUPCDUPDROPSWAPOVERROTDEPTHADDSUBMULDIVADD_ONESUB_ONEMAXMINABSMODANDORXORNOTEQNOT_EQEQ_GREATGREATEQ_LESSLESSJMPCCALLRETSTORESTORE_ABSLOADLOAD_ABSGET_RSPINC_RSPSET_RSPGET_RBPINC_RBPSET_RBPGET_PCSET_PC"
 
-var (
-	_Word_index_0 = [...]uint8{0, 3, 6, 10, 14, 18, 21, 25, 29, 33, 37, 40, 45, 48, 51, 54, 57, 64, 71, 74, 77, 80, 83, 86, 88, 91, 94, 96, 102, 110, 115, 122, 126, 130, 134, 137, 142, 151, 155, 163, 170, 177, 184, 191, 198, 205, 211, 217}
-	_Word_index_1 = [...]uint8{0, 7, 14}
-)
+var _Word_index = [...]uint8{0, 3, 6, 10, 14, 18, 21, 25, 29, 33, 37, 40, 45, 48, 51, 54, 57, 64, 71, 74, 77, 80, 83, 86, 88, 91, 94, 96, 102, 110, 115, 122, 126, 130, 134, 137, 142, 151, 155, 163, 170, 177, 184, 191, 198, 205, 211, 217}
 
 func (i Word) String() string {
-	switch {
-	case 0 <= i && i <= 46:
-		return _Word_name_0[_Word_index_0[i]:_Word_index_0[i+1]]
-	case 65535 <= i && i <= 65536:
-		i -= 65535
-		return _Word_name_1[_Word_index_1[i]:_Word_index_1[i+1]]
-	default:
-		return "Word(" + strconv.FormatInt(int64(i), 10) + ")"
+	i -= 65536
+	if i < 0 || i >= Word(len(_Word_index)-1) {
+		return "Word(" + strconv.FormatInt(int64(i+65536), 10) + ")"
 	}
+	return _Word_name[_Word_index[i]:_Word_index[i+1]]
 }
