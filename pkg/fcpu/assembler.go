@@ -11,9 +11,10 @@ import (
 )
 
 var Symbols = map[string]Word{
-	"HLT":  HLT,
-	"NOP":  NOP,
-	"EMIT": EMIT,
+	"HLT":    HLT,
+	"NOP":    NOP,
+	"EMIT":   EMIT,
+	"PERIOD": PERIOD,
 
 	/* Stack manipulation */
 	"PUSH":  PUSH,
@@ -57,7 +58,8 @@ var Symbols = map[string]Word{
 	"<=": EQ_LESS,
 
 	/* Control and subroutines */
-	"JMPC": JMPC,
+	"JCC":  JCC,
+	"JMP":  JMP,
 	"CALL": CALL,
 	"RET":  RET,
 

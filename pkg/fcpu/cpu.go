@@ -18,6 +18,7 @@ const (
 	HLT Word = iota + 0x10000
 	NOP
 	EMIT
+	PERIOD
 
 	/* Stack manipulation */
 	PUSH /* Push data onto stack */
@@ -59,7 +60,8 @@ const (
 	LESS     /* Compare for Less */
 
 	/* Control and subroutines */
-	JMPC /* Jump if condition */
+	JCC /* Jump if condition is met */
+	JMP /* Jump */
 	CALL
 	RET
 
@@ -284,11 +286,15 @@ func (cpu *CPU) Eval() error {
 		value := cpu.mmu.ReadW(Addr(v1))
 		// fmt.Println("LOAD_ABS: ---", int(v1), int(value))
 		cpu.ds.Push(value)
-	case JMPC:
+	case JCC:
 		v1, v2, _ := cpu.ds.Pop2()
+		// fmt.Println("JCC: ---", int(v1), int(v2))
 		if v1 != 0 {
 			cpu.pc = Addr(v2)
 		}
+	case JMP:
+		v1, _ := cpu.ds.Pop()
+		cpu.pc = Addr(v1)
 	case GET_RSP:
 		cpu.ds.Push(Word(cpu.rsp))
 		break

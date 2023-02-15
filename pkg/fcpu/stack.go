@@ -27,7 +27,7 @@ func (stack *Stack) Push(value Word) error {
 
 func (stack *Stack) PushBool(value bool) error {
 	if value {
-		return stack.Push(1)
+		return stack.Push(-1)
 	} else {
 		return stack.Push(0)
 	}

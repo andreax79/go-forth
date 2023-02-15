@@ -1,7 +1,6 @@
 package fcpu
 
 import (
-	_ "encoding/binary"
 	"fmt"
 	"unsafe"
 )
