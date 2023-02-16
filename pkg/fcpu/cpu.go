@@ -21,16 +21,16 @@ const (
 	PERIOD
 
 	/* Stack manipulation */
-	PUSH /* Push data onto stack */
-	ZERO /* Push 0 onto stack */
-	DUP  /* Duplicates the top stack item */
-	CDUP /* ?DUP - Duplicate only if non-zero */
-	DROP /* Discards the top stack item */
-	SWAP /* Reverses the top two stack items */
-	OVER /* Make copy of second item on top */
-	ROT  /* Rotate third item to top */
-	// PICK /* Copy n-th item to too */
-	// ROLL
+	PUSH  /* Push data onto stack */
+	ZERO  /* Push 0 onto stack */
+	DUP   /* Duplicates the top stack item */
+	CDUP  /* ?DUP - Duplicate only if non-zero */
+	DROP  /* Discards the top stack item */
+	SWAP  /* Reverses the top two stack items */
+	OVER  /* Make copy of second item on top */
+	ROT   /* Rotate third item to top */
+	PICK  /* Copy n-th item to too */
+	ROLL  /* Rotate n-th Item to top. */
 	DEPTH /* Count number of items on stack */
 
 	/* Arithmetic */
@@ -67,9 +67,9 @@ const (
 
 	/* Memory */
 	STORE
-	STORE_ABS
+	// STORE_ABS
 	LOAD
-	LOAD_ABS
+	// LOAD_ABS
 
 	/* Registers */
 	GET_RSP
@@ -173,6 +173,12 @@ func (cpu *CPU) Eval() error {
 		cpu.ds.Push(v1)
 		cpu.ds.Push(v2)
 		cpu.ds.Push(v3)
+	case PICK: /* Remove u. Copy the x-u to the top of the stack. */
+		v1, _ = cpu.ds.Pop()
+		cpu.ds.Pick(v1)
+	case ROLL: /* Remove u.  Rotate u+1 items on the top of the stack */
+		v1, _ = cpu.ds.Pop()
+		cpu.ds.Roll(v1)
 	case DEPTH: /* Count number of items on stack */
 		cpu.ds.Push(Word(cpu.ds.Size()))
 		break
@@ -268,20 +274,20 @@ func (cpu *CPU) Eval() error {
 		v1, v2, _ = cpu.ds.Pop2()
 		cpu.ds.PushBool(v1 < v2)
 		break
+	// case STORE:
+	// 	v1, v2, _ = cpu.ds.Pop2()
+	// 	cpu.mmu.WriteW(Addr(v2)+cpu.rbp, v1)
+	// 	break
 	case STORE:
 		v1, v2, _ = cpu.ds.Pop2()
-		cpu.mmu.WriteW(Addr(v2)+cpu.rbp, v1)
-		break
-	case STORE_ABS:
-		v1, v2, _ = cpu.ds.Pop2()
 		cpu.mmu.WriteW(Addr(v2), v1)
+	// case LOAD:
+	// 	v1, _ := cpu.ds.Pop()
+	// 	value := cpu.mmu.ReadW(Addr(v1) + cpu.rbp)
+	// 	// fmt.Println("LOAD: ---", int(v1), int(value))
+	// 	cpu.ds.Push(value)
+	// 	break
 	case LOAD:
-		v1, _ := cpu.ds.Pop()
-		value := cpu.mmu.ReadW(Addr(v1) + cpu.rbp)
-		// fmt.Println("LOAD: ---", int(v1), int(value))
-		cpu.ds.Push(value)
-		break
-	case LOAD_ABS:
 		v1, _ := cpu.ds.Pop()
 		value := cpu.mmu.ReadW(Addr(v1))
 		// fmt.Println("LOAD_ABS: ---", int(v1), int(value))

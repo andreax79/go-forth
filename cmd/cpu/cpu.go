@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	asm "github.com/andreax79/go-fcpu/pkg/assembler"
 	fcpu "github.com/andreax79/go-fcpu/pkg/fcpu"
 	forth "github.com/andreax79/go-fcpu/pkg/forth"
 	"os"
@@ -16,7 +17,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	prog, err = fcpu.Compile(asmFilename)
+	prog, err = asm.Compile(asmFilename)
 	if err != nil {
 		fmt.Println(err)
 		return

@@ -5,67 +5,66 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	fcpu "github.com/andreax79/go-fcpu/pkg/fcpu"
 	"os"
 	"strconv"
 	"strings"
 )
 
-var Symbols = map[string]Word{
-	"HLT":    HLT,
-	"NOP":    NOP,
-	"EMIT":   EMIT,
-	"PERIOD": PERIOD,
+var Symbols = map[string]fcpu.Word{
+	"HLT":    fcpu.HLT,
+	"NOP":    fcpu.NOP,
+	"EMIT":   fcpu.EMIT,
+	"PERIOD": fcpu.PERIOD,
 
 	/* Stack manipulation */
-	"PUSH":  PUSH,
-	"ZERO":  ZERO,
-	"DUP":   DUP,
-	"?DUP":  CDUP,
-	"DROP":  DROP,
-	"SWAP":  SWAP,
-	"OVER":  OVER,
-	"ROT":   ROT,
-	"DEPTH": DEPTH,
+	"PUSH":  fcpu.PUSH,
+	"ZERO":  fcpu.ZERO,
+	"DUP":   fcpu.DUP,
+	"?DUP":  fcpu.CDUP,
+	"DROP":  fcpu.DROP,
+	"SWAP":  fcpu.SWAP,
+	"OVER":  fcpu.OVER,
+	"ROT":   fcpu.ROT,
+	"PICK":  fcpu.PICK,
+	"ROLL":  fcpu.ROLL,
+	"DEPTH": fcpu.DEPTH,
 
 	/* Arithmetic */
-	"+":   ADD,
-	"ADD": ADD,
-	"-":   SUB,
-	"SUB": SUB,
-	"*":   MUL,
-	"MUL": MUL,
-	"/":   DIV,
-	"DIV": DIV,
-	"1+":  ADD_ONE,
-	"1-":  SUB_ONE,
-	"MAX": MAX,
-	"MIN": MIN,
-	"ABS": ABS,
-	"MOD": MOD,
+	"ADD": fcpu.ADD,
+	"SUB": fcpu.SUB,
+	"MUL": fcpu.MUL,
+	"DIV": fcpu.DIV,
+	"1+":  fcpu.ADD_ONE,
+	"1-":  fcpu.SUB_ONE,
+	"MAX": fcpu.MAX,
+	"MIN": fcpu.MIN,
+	"ABS": fcpu.ABS,
+	"MOD": fcpu.MOD,
 
 	/* Logical */
-	"AND": AND,
-	"OR":  OR,
-	"XOR": XOR,
-	"NOT": NOT,
+	"AND": fcpu.AND,
+	"OR":  fcpu.OR,
+	"XOR": fcpu.XOR,
+	"NOT": fcpu.NOT,
 
 	/* Comparison */
-	"=":  EQ,
-	"<>": NOT_EQ,
-	">":  GREAT,
-	">=": EQ_GREAT,
-	"<":  LESS,
-	"<=": EQ_LESS,
+	"=":  fcpu.EQ,
+	"<>": fcpu.NOT_EQ,
+	">":  fcpu.GREAT,
+	">=": fcpu.EQ_GREAT,
+	"<":  fcpu.LESS,
+	"<=": fcpu.EQ_LESS,
 
 	/* Control and subroutines */
-	"JCC":  JCC,
-	"JMP":  JMP,
-	"CALL": CALL,
-	"RET":  RET,
+	"JCC":  fcpu.JCC,
+	"JMP":  fcpu.JMP,
+	"CALL": fcpu.CALL,
+	"RET":  fcpu.RET,
 
 	/* Memory */
-	"STORE": STORE,
-	"LOAD":  LOAD,
+	"STORE": fcpu.STORE,
+	"LOAD":  fcpu.LOAD,
 }
 
 type Pass uint8
@@ -77,33 +76,33 @@ const (
 
 // Compiler status
 type CompilerStatus struct {
-	pc               Addr
-	buf              *bytes.Buffer   // program code
-	labels           map[string]Addr // map label names to addresses
-	variables        map[string]Addr // map variable names to addresses
-	lastVariableAddr Addr            // address of the last variable
-	pass             Pass            // pass number (First/Second)
+	pc               fcpu.Addr
+	buf              *bytes.Buffer        // program code
+	labels           map[string]fcpu.Addr // map label names to addresses
+	variables        map[string]fcpu.Addr // map variable names to addresses
+	lastVariableAddr fcpu.Addr            // address of the last variable
+	pass             Pass                 // pass number (First/Second)
 }
 
-func NewCompilerStatus(pass Pass, labels map[string]Addr) (status *CompilerStatus) {
+func NewCompilerStatus(pass Pass, labels map[string]fcpu.Addr) (status *CompilerStatus) {
 	status = new(CompilerStatus)
 	status.pc = 0
 	status.buf = new(bytes.Buffer)
-	status.variables = map[string]Addr{}
+	status.variables = map[string]fcpu.Addr{}
 	status.lastVariableAddr = 0
 	status.pass = pass
 	if labels != nil {
 		status.labels = labels
 	} else {
-		status.labels = map[string]Addr{}
+		status.labels = map[string]fcpu.Addr{}
 	}
 	return status
 }
 
 // Add compiled code to the program
-func (status *CompilerStatus) AddCode(code ...Word) error {
+func (status *CompilerStatus) AddCode(code ...fcpu.Word) error {
 	if status.pass == Second {
-		if code[0] == PUSH && len(code) == 2 {
+		if code[0] == fcpu.PUSH && len(code) == 2 {
 			fmt.Printf("%04d %s %d\n", status.pc, code[0], int(code[1]))
 		} else {
 			fmt.Printf("%04d %s\n", status.pc, strings.Trim(fmt.Sprint(code), "[]"))
@@ -113,7 +112,7 @@ func (status *CompilerStatus) AddCode(code ...Word) error {
 	if err != nil {
 		return err
 	}
-	status.pc += Addr(len(code)) * WordSize
+	status.pc += fcpu.Addr(len(code)) * fcpu.WordSize
 	return nil
 }
 
@@ -131,13 +130,13 @@ func CompileLine(status *CompilerStatus, line string) error {
 			addr, exists := status.variables[variable]
 			if !exists { // New variable
 				addr = status.lastVariableAddr
-				status.lastVariableAddr += WordSize
+				status.lastVariableAddr += fcpu.WordSize
 				status.variables[variable] = addr
-				if err = status.AddCode(INC_RSP); err != nil { // Increment rsp
+				if err = status.AddCode(fcpu.INC_RSP); err != nil { // Increment rsp
 					return err
 				}
 			}
-			err = status.AddCode(PUSH, Word(addr))
+			err = status.AddCode(fcpu.PUSH, fcpu.Word(addr))
 
 		} else if strings.HasSuffix(token, ":") { // Define a symbol with the value of the current location counter (used to define labels)
 			label := strings.TrimSuffix(token, ":")
@@ -147,10 +146,10 @@ func CompileLine(status *CompilerStatus, line string) error {
 			err = status.AddCode(c)
 
 		} else if c, exists := status.labels[token]; exists { // Label
-			err = status.AddCode(Word(c))
+			err = status.AddCode(fcpu.Word(c))
 
 		} else { // Push
-			value, err := strconv.Atoi(token)
+			value, err := strconv.ParseInt(token, 0, 0)
 			if err != nil {
 				// Ignore undefined labels during the first compilation pass
 				if status.pass != First {
@@ -158,7 +157,7 @@ func CompileLine(status *CompilerStatus, line string) error {
 				}
 				value = -1 // TODO - test value
 			}
-			err = status.AddCode(Word(value))
+			err = status.AddCode(fcpu.Word(value))
 		}
 		if err != nil {
 			return err
@@ -168,7 +167,7 @@ func CompileLine(status *CompilerStatus, line string) error {
 }
 
 // Execute a compilation pass
-func CompilePass(file *os.File, pass Pass, labels map[string]Addr) (*CompilerStatus, error) {
+func CompilePass(file *os.File, pass Pass, labels map[string]fcpu.Addr) (*CompilerStatus, error) {
 	status := NewCompilerStatus(pass, labels)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

@@ -53,6 +53,32 @@ func (stack *Stack) Dup() error {
 	return stack.Push(value)
 }
 
+// Copy the xu to the top of the stack
+func (stack *Stack) Pick(n Word) error {
+	addr := stack.pointer + Addr(n)*WordSize
+	value := stack.mmu.ReadW(addr) // TODO out of stack
+	return stack.Push(value)
+}
+
+// Rotate u+1 items on the top of the stack
+func (stack *Stack) Roll(n Word) error {
+	if n <= 0 {
+		return nil
+	}
+	var last Word
+	for i := Word(0); i < n; i++ {
+		addr := stack.pointer + Addr(i)*WordSize
+		value := stack.mmu.ReadW(addr) // TODO out of stack
+		fmt.Println(i, addr, value, last)
+		if i > 0 {
+			stack.mmu.WriteW(addr, last)
+		}
+		last = value
+	}
+	stack.mmu.WriteW(stack.pointer, last)
+	return nil
+}
+
 func (stack *Stack) Pop2() (Word, Word, error) {
 	var v1 Word
 	var v2 Word
@@ -73,7 +99,7 @@ func (stack *Stack) Size() Addr {
 func (stack *Stack) String() string {
 	var buf strings.Builder
 	fmt.Fprintf(&buf, "(%d) ", stack.Size())
-	for i := stack.pointer; i < stack.origin; i += WordSize {
+	for i := stack.origin - WordSize; i >= stack.pointer; i -= WordSize {
 		fmt.Fprintf(&buf, "%d ", stack.mmu.ReadW(i))
 	}
 	return buf.String()
