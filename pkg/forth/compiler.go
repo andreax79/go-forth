@@ -24,7 +24,12 @@ var Pseudo = map[string]string{
 	"2DUP":  "over over",               // ( x1 x2 -- x1 x2 x1 x2 ) Duplicate cell pair x1 x2.
 	"2DROP": "drop drop",               // ( x1 x2 -- ) Drop cell pair x1 x2 from the stack.
 	"2OVER": "push 3 pick push 3 pick", // ( x1 x2 x3 x4 -- x1 x2 x3 x4 x1 x2 ) Copy cell pair x1 x2 to the top of the stack.
-	// "2SWAP": "rot >R rot R>", // ( x1 x2 x3 x4 -- x3 x4 x1 x2 ) Exchange the top two cell pairs.
+	"2SWAP": "rot to_r rot r_from",     // ( x1 x2 x3 x4 -- x3 x4 x1 x2 ) Exchange the top two cell pairs.
+
+	/* Return Stack manipulation */
+	">R": "to_r",    // ( x -- ) ( R: -- x ) Move x to the return stack.
+	"R>": "r_from",  // ( -- x ) ( R: x -- ) Move x from the return stack to the data stack.
+	"R@": "r_fetch", // ( -- x ) ( R: x -- x ) Copy x from the return stack to the data stack.
 
 	/* Arithmetic */
 	"+":      "add",
@@ -69,14 +74,6 @@ var Pseudo = map[string]string{
 	"HLT":  "hlt",
 	"NOP":  "nop",
 }
-
-// TODO:
-// SP@ - Push the current data stack pointer
-// SP! - Set the data stack pointer
-// SP0 - Pointer to the bottom of the data stack
-// RP@ - Push the current return stack pointer
-// RP! - Set the return stack pointer
-// RP0 - Pointer to the bottom of the return stack
 
 type Pass uint8
 

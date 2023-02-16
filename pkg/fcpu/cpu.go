@@ -6,6 +6,7 @@ import (
 )
 
 const DataStackTop = 1 << 16
+const ReturnStackTop = 1 << 15
 
 type Addr uint32
 
@@ -32,6 +33,11 @@ const (
 	PICK  /* Copy n-th item to too */
 	ROLL  /* Rotate n-th Item to top. */
 	DEPTH /* Count number of items on stack */
+
+	/* Return Stack manipulation */
+	TO_R    /* Move top item to the return stack. */
+	R_FROM  /* Retrieve item from the return stack. */
+	R_FETCH /* Copy top of return stack onto stack */
 
 	/* Arithmetic */
 	ADD     /* Add */
@@ -68,7 +74,7 @@ const (
 	/* Memory */
 	STORE
 	// STORE_ABS
-	LOAD
+	FETCH
 	// LOAD_ABS
 
 	/* Registers */
@@ -93,8 +99,10 @@ type CPU struct {
 	mmu *MMU   // Memory Management Unit
 	pc  Addr   // Program counter
 	ds  *Stack // Data Stack
-	rsp Addr   // Return stack pointer
-	rbp Addr   // Return stack base
+	rs  *Stack // Return Stack
+	// OLD
+	rsp Addr // Return stack pointer
+	rbp Addr // Return stack base
 }
 
 func NewCPU(prog []byte) (cpu *CPU) {
@@ -102,6 +110,7 @@ func NewCPU(prog []byte) (cpu *CPU) {
 	cpu.mmu = NewMMU()
 	cpu.pc = 0
 	cpu.ds = NewStack(cpu.mmu, DataStackTop)
+	cpu.rs = NewStack(cpu.mmu, ReturnStackTop)
 	cpu.rbp = Addr(len(prog))
 	cpu.rsp = cpu.rbp
 	cpu.mmu.WriteBytes(0, prog)
@@ -182,6 +191,15 @@ func (cpu *CPU) Eval() error {
 	case DEPTH: /* Count number of items on stack */
 		cpu.ds.Push(Word(cpu.ds.Size()))
 		break
+	case TO_R: /* Move top item to the return stack. */
+		v1, _ = cpu.ds.Pop()
+		cpu.rs.Push(v1)
+	case R_FROM: /* Retrieve item from the return stack. */
+		v1, _ = cpu.rs.Pop()
+		cpu.ds.Push(v1)
+	case R_FETCH: /* Copy top of return stack onto stack */
+		v1, _ = cpu.rs.Get()
+		cpu.ds.Push(v1)
 	case ADD:
 		v1, v2, _ = cpu.ds.Pop2()
 		cpu.ds.Push(v1 + v2)
@@ -287,10 +305,10 @@ func (cpu *CPU) Eval() error {
 	// 	// fmt.Println("LOAD: ---", int(v1), int(value))
 	// 	cpu.ds.Push(value)
 	// 	break
-	case LOAD:
+	case FETCH:
 		v1, _ := cpu.ds.Pop()
 		value := cpu.mmu.ReadW(Addr(v1))
-		// fmt.Println("LOAD_ABS: ---", int(v1), int(value))
+		// fmt.Println("FETCH: ---", int(v1), int(value))
 		cpu.ds.Push(value)
 	case JCC:
 		v1, v2, _ := cpu.ds.Pop2()

@@ -30,6 +30,11 @@ var Symbols = map[string]fcpu.Word{
 	"ROLL":  fcpu.ROLL,
 	"DEPTH": fcpu.DEPTH,
 
+	/* Return Stack manipulation */
+	"TO_R":    fcpu.TO_R,
+	"R_FROM":  fcpu.R_FROM,
+	"R_FETCH": fcpu.R_FETCH,
+
 	/* Arithmetic */
 	"ADD": fcpu.ADD,
 	"SUB": fcpu.SUB,
@@ -64,7 +69,7 @@ var Symbols = map[string]fcpu.Word{
 
 	/* Memory */
 	"STORE": fcpu.STORE,
-	"LOAD":  fcpu.LOAD,
+	"FETCH": fcpu.FETCH,
 }
 
 type Pass uint8
