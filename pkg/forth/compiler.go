@@ -82,15 +82,6 @@ const (
 	Second      = 2
 )
 
-type Phase uint8
-
-const (
-	None Phase = iota
-	If
-	Else
-	Then
-)
-
 type CompilerError struct {
 	message string
 }
@@ -107,19 +98,17 @@ func (e *CompilerError) Error() string {
 
 // Compiler status
 type CompilerStatus struct {
-	output      *os.File
-	labels      map[string]bool
-	pass        Pass // pass number (First/Second)
-	ifStructure int
-	phase       Phase
+	output  *os.File
+	labels  map[string]bool
+	pass    Pass // pass number (First/Second)
+	context *ContextStack
 }
 
 func NewCompilerStatus(pass Pass, output *os.File, labels map[string]bool) (status *CompilerStatus) {
 	status = new(CompilerStatus)
 	status.pass = pass
 	status.output = output
-	status.ifStructure = 0
-	status.phase = None
+	status.context = new(ContextStack)
 	if labels != nil {
 		status.labels = labels
 	} else {
@@ -137,61 +126,64 @@ func CompileLine(status *CompilerStatus, line string) error {
 			break
 		}
 
+		pseudo, isPseudo := Pseudo[token]
+		_, isLabel := status.labels[token]
+
 		/*		if strings.HasPrefix(token, "@") { // Variable
 				if status.pass == Second {
 					status.output.WriteString(strings.ToLower(fmt.Sprintf("  %s", token)))
 				}
 
 			} else*/
-		if strings.HasSuffix(token, ":") { // Define a symbol with the value of the current location counter (used to define labels)
+
+		switch {
+		case strings.HasSuffix(token, ":"): // Define a symbol with the value of the current location counter (used to define labels)
 			label := strings.TrimSuffix(token, ":")
 			status.labels[label] = true
 			if status.pass == Second {
 				status.output.WriteString(fmt.Sprintf("\n%s:", label))
 			}
 
-		} else if token == "IF" {
-			status.ifStructure++
-			status.phase = If
+		case token == "IF":
+			status.context.Enter(If)
 			if status.pass == Second {
-				status.output.WriteString(fmt.Sprintf("\n  not push if_%d_else jcc\n", status.ifStructure))
+				status.output.WriteString(fmt.Sprintf("\n  not push if_%d_else jcc\n", status.context.Id()))
 			}
 
-		} else if token == "ELSE" {
-			if status.phase != If {
+		case token == "ELSE":
+			if !status.context.Is(If) {
 				return NewCompilerError("Unbalanced control structure 'else'")
 			}
 			if status.pass == Second {
-				status.output.WriteString(fmt.Sprintf("\n  push if_%d_then jmp\n", status.ifStructure))
-				status.output.WriteString(fmt.Sprintf("if_%d_else:\n", status.ifStructure))
+				status.output.WriteString(fmt.Sprintf("\n  push if_%d_then jmp\n", status.context.Id()))
+				status.output.WriteString(fmt.Sprintf("if_%d_else:\n", status.context.Id()))
 			}
-			status.phase = Else
+			status.context.Change(Else)
 
-		} else if token == "THEN" {
-			if status.phase != If && status.phase != Else {
+		case token == "THEN":
+			if !status.context.Is(If) && !status.context.Is(Else) {
 				return NewCompilerError("Unbalanced control structure 'then'")
 			}
 			if status.pass == Second {
-				fmt.Println("phase", status.phase)
-				if status.phase == If {
-					status.output.WriteString(fmt.Sprintf("\nif_%d_else:\n", status.ifStructure))
+				if status.context.Is(If) {
+					status.output.WriteString(fmt.Sprintf("\nif_%d_else:\n", status.context.Id()))
 				} else {
-					status.output.WriteString(fmt.Sprintf("\nif_%d_then:\n", status.ifStructure))
+					status.output.WriteString(fmt.Sprintf("\nif_%d_then:\n", status.context.Id()))
 				}
 			}
-			status.phase = None
+			status.context.Exit()
 
-		} else if pseudo, exists := Pseudo[token]; exists { // Token
+		case isPseudo:
 			if status.pass == Second {
 				status.output.WriteString(fmt.Sprintf("  %s", pseudo))
 			}
 
-		} else if _, exists := status.labels[token]; exists { // Label
+		case isLabel:
 			if status.pass == Second {
 				status.output.WriteString(fmt.Sprintf("  push %s", token))
 			}
 
-		} else { // Push
+		default:
 			// Ignore undefined labels/words during the first compilation pass
 			if status.pass == Second {
 				value, err := strconv.ParseInt(token, 0, 0)
