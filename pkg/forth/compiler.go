@@ -117,6 +117,11 @@ func NewCompilerStatus(pass Pass, output *os.File, labels map[string]bool) (stat
 	return status
 }
 
+func (status *CompilerStatus) Add(s string) {
+	s = strings.Replace(s, "{ID}", fmt.Sprint(status.context.Id()), -1)
+	status.output.WriteString("\n" + s + "\n")
+}
+
 // Compile a line, add compiled code to the program
 func CompileLine(status *CompilerStatus, line string) error {
 	var err error
@@ -147,7 +152,7 @@ func CompileLine(status *CompilerStatus, line string) error {
 		case token == "IF":
 			status.context.Enter(If)
 			if status.pass == Second {
-				status.output.WriteString(fmt.Sprintf("\n  not push if_%d_else jcc\n", status.context.Id()))
+				status.Add("  not push if_{ID}_else jcc")
 			}
 
 		case token == "ELSE":
@@ -155,8 +160,8 @@ func CompileLine(status *CompilerStatus, line string) error {
 				return NewCompilerError("Unbalanced control structure 'else'")
 			}
 			if status.pass == Second {
-				status.output.WriteString(fmt.Sprintf("\n  push if_%d_then jmp\n", status.context.Id()))
-				status.output.WriteString(fmt.Sprintf("if_%d_else:\n", status.context.Id()))
+				status.Add("  push if_{ID}_then jmp")
+				status.Add("if_{ID}_else:")
 			}
 			status.context.Change(Else)
 
@@ -166,12 +171,51 @@ func CompileLine(status *CompilerStatus, line string) error {
 			}
 			if status.pass == Second {
 				if status.context.Is(If) {
-					status.output.WriteString(fmt.Sprintf("\nif_%d_else:\n", status.context.Id()))
+					status.Add("if_{ID}_else:")
 				} else {
-					status.output.WriteString(fmt.Sprintf("\nif_%d_then:\n", status.context.Id()))
+					status.Add("if_{ID}_then:")
 				}
 			}
 			status.context.Exit()
+
+		case token == "DO":
+			status.context.Enter(Do)
+			if status.pass == Second {
+				status.Add("  swap to_r to_r") // Push limit, i on the return stack
+				status.Add("do_{ID}:")
+			}
+
+		case token == "I":
+			if !status.context.Is(Do) {
+				return NewCompilerError("Unbalanced control structure 'i'")
+			}
+			if status.pass == Second {
+				status.Add("  r_fetch") // Fetch i from the return stack
+			}
+			break
+
+		case token == "LOOP":
+			if !status.context.Is(Do) {
+				return NewCompilerError("Unbalanced control structure 'loop'")
+			}
+			if status.pass == Second {
+				status.Add("  r_from r_fetch swap") // Push limit, i
+				status.Add("  push 1 add")          // Increment i
+				status.Add("  dup to_r")            // Store i on the return stack
+				status.Add("  > push do_{ID} jcc")  // Loop
+				status.Add("do_{ID}_end:")
+				status.Add("  r_from drop r_from drop") // Remove limit, i from the return stack
+			}
+			status.context.Exit()
+
+		case token == "LEAVE":
+			if !status.context.HasAnchestor(Do) {
+				return NewCompilerError("Unbalanced control structure 'loop'")
+			}
+			if status.pass == Second {
+				status.Add("  r_from drop r_fetch to_r") // i := limit
+				status.Add("  push do_{ID}_end jmp")     // Go to end
+			}
 
 		case isPseudo:
 			if status.pass == Second {

@@ -120,8 +120,11 @@ func NewCPU(prog []byte) (cpu *CPU) {
 func (cpu *CPU) PrintRegisters() {
 	var op Word
 	op = cpu.mmu.ReadW(cpu.pc)
-	fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %-15s  stack: %s\n",
-		cpu.pc, cpu.ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.ds,
+	// fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %-15s  stack: %s\n",
+	// 	cpu.pc, cpu.ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.ds,
+	// )
+	fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %-15s  stack: %-30.30s  rs: %s\n",
+		cpu.pc, cpu.ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.ds, cpu.rs,
 	)
 }
 
@@ -146,7 +149,11 @@ func (cpu *CPU) Eval() error {
 		cpu.ds.Push(cpu.mmu.ReadW(cpu.pc))
 		cpu.pc += WordSize
 		break
-	case EMIT:
+	case EMIT: // TODO
+		v1, _ = cpu.ds.Pop()
+		fmt.Printf(">>>> %d\n", int(v1))
+		break
+	case PERIOD:
 		v1, _ = cpu.ds.Pop()
 		fmt.Printf(">>>> %d\n", int(v1))
 		break

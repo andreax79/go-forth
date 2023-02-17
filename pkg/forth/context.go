@@ -6,6 +6,7 @@ const (
 	None Statement = iota
 	If
 	Else
+	Do
 )
 
 type ContextStack struct {
@@ -57,10 +58,35 @@ func (s *ContextStack) Id() int {
 	return 0
 }
 
+// Check the current and anchestor context
+func (s *ContextStack) HasAnchestor(statement Statement) bool {
+	if s.node != nil {
+		node := s.node
+		for node != nil {
+			if node.statement == statement {
+				return true
+			}
+			node = node.next
+		}
+	}
+	return false
+}
+
 // Leave the current context
 func (s *ContextStack) Exit() {
 	if s.node != nil {
 		s.node = s.node.next
+	}
+}
+
+// Leave the contenxt until anchestor
+func (s *ContextStack) ExitUntil(statement Statement) {
+	if s.node != nil {
+		if s.node.statement == statement {
+			return
+		}
+		s.node = s.node.next
+		s.ExitUntil(statement)
 	}
 }
 

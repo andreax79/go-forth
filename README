@@ -1,6 +1,9 @@
 http://www.forth.org/Ting/Forth-for-the-Complete-Idiot/Forth-79-Handy-Reference.pdf
 
-
+- forth
+  - forth comments [OK]
+  - loop [OK]
+  - forth definitions
 
 - variables [OK]
 - 2 pass compiler [OK]
@@ -14,9 +17,8 @@ http://www.forth.org/Ting/Forth-for-the-Complete-Idiot/Forth-79-Handy-Reference.
 - call/ret ==> accesso variabili 'globali' ?
 - I/O = emit
 - relative jump
-- nice syntax
-  - forth comments
-  - forth definitions
+
+- nice syntax [OK]
 
 ------------------------
 Before subcall execution
