@@ -104,3 +104,11 @@ func (stack *Stack) String() string {
 	}
 	return buf.String()
 }
+
+func (stack *Stack) Array() []Word {
+	array := make([]Word, stack.Size())
+	for i := Addr(0); i < stack.Size(); i++ {
+		array[stack.Size()-1-i] = stack.mmu.ReadW(stack.pointer + i*WordSize)
+	}
+	return array
+}

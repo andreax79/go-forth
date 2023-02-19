@@ -1,0 +1,152 @@
+package forth
+
+import (
+	"errors"
+	asm "github.com/andreax79/go-fcpu/pkg/assembler"
+	fcpu "github.com/andreax79/go-fcpu/pkg/fcpu"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+)
+
+var Halt = new(fcpu.Halt)
+
+func runForth(source string) (*fcpu.CPU, error) {
+	var err error
+	var tmpDir string
+	var forthFilename string
+	var asmFilename string
+	var prog []byte
+	// Create temp directory
+	tmpDir, err = os.MkdirTemp("", "test")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(tmpDir) // clean up
+	forthFilename = filepath.Join(tmpDir, "source.ft")
+	// Write forth source file
+	if err = os.WriteFile(forthFilename, []byte(source+" hlt"), 0666); err != nil {
+		return nil, err
+	}
+	// Forth => Asm
+	asmFilename, err = Compile(forthFilename)
+	if err != nil {
+		return nil, err
+	}
+	// Asm => bytecode
+	prog, err = asm.Compile(asmFilename)
+	if err != nil {
+		return nil, err
+	}
+	// Execute
+	cpu := fcpu.NewCPU(prog)
+	for {
+		err := cpu.Eval()
+		if err != nil {
+			if errors.Is(err, Halt) {
+				return cpu, nil
+			}
+			break
+		}
+	}
+	return cpu, nil
+}
+
+func testForth(t *testing.T, source string, compareSource string) {
+	compareCpu, compareErr := runForth(compareSource)
+	if compareErr != nil {
+		t.Fatalf("%s", compareErr)
+	}
+	cpu, err := runForth(source)
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
+	if cpu.Ds.Size() != compareCpu.Ds.Size() {
+		t.Fatalf("Wrong stack size: %d", cpu.Ds.Size())
+	}
+	if !reflect.DeepEqual(cpu.Ds.Array(), compareCpu.Ds.Array()) {
+		t.Fatalf("Wrong stack content: %s expected: %s", cpu.Ds.Array(), compareCpu.Ds.Array())
+	}
+}
+
+func Test2Over(t *testing.T) {
+	testForth(t,
+		"1 2 3 4 2over",
+		"1 2 3 4 1 2",
+	)
+}
+
+func Test2Swap(t *testing.T) {
+	testForth(t,
+		"1 2 3 4 2swap",
+		"3 4 1 2",
+	)
+}
+
+func Test1Plus(t *testing.T) {
+	testForth(t, "0 1+", "1")
+	testForth(t, "-1 1+", "0")
+	testForth(t, "1 1+", "2")
+}
+
+func TestR(t *testing.T) {
+	testForth(t, "123 >r r>", "123")
+	testForth(t, "15 >r r@ r> drop", "15")
+}
+
+func TestComparison(t *testing.T) {
+	testForth(t, "9 10 =", "false")
+	testForth(t, "-10 -10 =", "true")
+	testForth(t, "9 10 <>", "true")
+	testForth(t, "-10 -10 <>", "false")
+	testForth(t, "10 9 >", "true")
+	testForth(t, "9 10 >", "false")
+	testForth(t, "10 10 >", "false")
+	testForth(t, "10 9 >=", "true")
+	testForth(t, "9 10 >=", "false")
+	testForth(t, "10 10 >=", "true")
+	testForth(t, "10 9 <", "false")
+	testForth(t, "9 10 <", "true")
+	testForth(t, "10 10 <", "false")
+	testForth(t, "10 9 <=", "false")
+	testForth(t, "9 10 <=", "true")
+	testForth(t, "10 10 <=", "true")
+	testForth(t, "0 0=", "true")
+	testForth(t, "1 0=", "false")
+	testForth(t, "1 0<", "false")
+	testForth(t, "-1 0<", "true")
+	testForth(t, "1 0>", "true")
+	testForth(t, "-1 0>", "false")
+}
+
+func TestIf(t *testing.T) {
+	testForth(t, "false if 123 then", "")
+	testForth(t, "true if 123 then", "123")
+	testForth(t, "false if 123 else 79 then", "79")
+	testForth(t, "true if 123 else 79 then", "123")
+	testForth(t, "2 3 > if 123 else 79 then", "79")
+	testForth(t, "2 3 < if 123 else 79 then", "123")
+	testForth(t, "20 21 <= if 123 else 79 then", "123")
+	testForth(t, "20 20 = if 123 else 79 then", "123")
+	testForth(t, "21 20 >= if 123 else 79 then", "123")
+	testForth(t, "21 20 <= if 123 else 79 then", "79")
+	testForth(t, "-2 0< if true else false then", "true")
+	testForth(t, "2 0< if true else false then", "false")
+	testForth(t, "-2 0> if true else false then", "false")
+	testForth(t, "0 0= if true else false then", "true")
+}
+
+func TestLoop(t *testing.T) {
+	testForth(t,
+		"10 0 do i loop hlt",
+		"0 1 2 3 4 5 6 7 8 9",
+	)
+}
+
+func TestLoopLeave(t *testing.T) {
+	testForth(t,
+		"10 0 do i . i 4 > if leave then i 10 * loop hlt",
+		"0 10 20 30 40",
+	)
+}

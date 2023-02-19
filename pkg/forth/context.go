@@ -1,4 +1,4 @@
-package fcpu
+package forth
 
 type Statement uint8
 

@@ -1,4 +1,4 @@
-package fcpu
+package forth
 
 import (
 	"bufio"

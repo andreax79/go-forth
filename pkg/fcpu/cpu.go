@@ -98,7 +98,7 @@ func (e *Halt) Error() string {
 type CPU struct {
 	mmu *MMU   // Memory Management Unit
 	pc  Addr   // Program counter
-	ds  *Stack // Data Stack
+	Ds  *Stack // Data Stack
 	rs  *Stack // Return Stack
 	// OLD
 	rsp Addr // Return stack pointer
@@ -109,7 +109,7 @@ func NewCPU(prog []byte) (cpu *CPU) {
 	cpu = new(CPU)
 	cpu.mmu = NewMMU()
 	cpu.pc = 0
-	cpu.ds = NewStack(cpu.mmu, DataStackTop)
+	cpu.Ds = NewStack(cpu.mmu, DataStackTop)
 	cpu.rs = NewStack(cpu.mmu, ReturnStackTop)
 	cpu.rbp = Addr(len(prog))
 	cpu.rsp = cpu.rbp
@@ -121,10 +121,10 @@ func (cpu *CPU) PrintRegisters() {
 	var op Word
 	op = cpu.mmu.ReadW(cpu.pc)
 	// fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %-15s  stack: %s\n",
-	// 	cpu.pc, cpu.ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.ds,
+	// 	cpu.pc, cpu.Ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.Ds,
 	// )
 	fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %-15s  stack: %-30.30s  rs: %s\n",
-		cpu.pc, cpu.ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.ds, cpu.rs,
+		cpu.pc, cpu.Ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.Ds, cpu.rs,
 	)
 }
 
@@ -146,215 +146,215 @@ func (cpu *CPU) Eval() error {
 	case HLT:
 		return new(Halt)
 	case PUSH:
-		cpu.ds.Push(cpu.mmu.ReadW(cpu.pc))
+		cpu.Ds.Push(cpu.mmu.ReadW(cpu.pc))
 		cpu.pc += WordSize
 		break
 	case EMIT: // TODO
-		v1, _ = cpu.ds.Pop()
+		v1, _ = cpu.Ds.Pop()
 		fmt.Printf(">>>> %d\n", int(v1))
 		break
 	case PERIOD:
-		v1, _ = cpu.ds.Pop()
+		v1, _ = cpu.Ds.Pop()
 		fmt.Printf(">>>> %d\n", int(v1))
 		break
 	case ZERO:
-		cpu.ds.Push(0)
+		cpu.Ds.Push(0)
 		break
 	case DROP: /* Discards the top stack item */
-		cpu.ds.Pop()
+		cpu.Ds.Pop()
 		break
 	case DUP: /* Duplicates the top stack item */
-		cpu.ds.Dup()
+		cpu.Ds.Dup()
 		break
 	case CDUP: /* Duplicates the top stack item */
-		v1, _ = cpu.ds.Get()
+		v1, _ = cpu.Ds.Get()
 		if v1 != 0 {
-			cpu.ds.Dup()
+			cpu.Ds.Dup()
 		}
 		break
 	case SWAP: /* Reverses the top two stack items */
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.Push(v2)
-		cpu.ds.Push(v1)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.Push(v2)
+		cpu.Ds.Push(v1)
 		break
 	case OVER: /* Push a copy of the second element on the stack */
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.Push(v1)
-		cpu.ds.Push(v2)
-		cpu.ds.Push(v1)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.Push(v1)
+		cpu.Ds.Push(v2)
+		cpu.Ds.Push(v1)
 		break
 	case ROT: /* Rotate the third item to top */
-		v1, v2, _ = cpu.ds.Pop2()
-		v3, _ = cpu.ds.Pop()
-		cpu.ds.Push(v1)
-		cpu.ds.Push(v2)
-		cpu.ds.Push(v3)
+		v1, v2, _ = cpu.Ds.Pop2()
+		v3, _ = cpu.Ds.Pop()
+		cpu.Ds.Push(v1)
+		cpu.Ds.Push(v2)
+		cpu.Ds.Push(v3)
 	case PICK: /* Remove u. Copy the x-u to the top of the stack. */
-		v1, _ = cpu.ds.Pop()
-		cpu.ds.Pick(v1)
+		v1, _ = cpu.Ds.Pop()
+		cpu.Ds.Pick(v1)
 	case ROLL: /* Remove u.  Rotate u+1 items on the top of the stack */
-		v1, _ = cpu.ds.Pop()
-		cpu.ds.Roll(v1)
+		v1, _ = cpu.Ds.Pop()
+		cpu.Ds.Roll(v1)
 	case DEPTH: /* Count number of items on stack */
-		cpu.ds.Push(Word(cpu.ds.Size()))
+		cpu.Ds.Push(Word(cpu.Ds.Size()))
 		break
 	case TO_R: /* Move top item to the return stack. */
-		v1, _ = cpu.ds.Pop()
+		v1, _ = cpu.Ds.Pop()
 		cpu.rs.Push(v1)
 	case R_FROM: /* Retrieve item from the return stack. */
 		v1, _ = cpu.rs.Pop()
-		cpu.ds.Push(v1)
+		cpu.Ds.Push(v1)
 	case R_FETCH: /* Copy top of return stack onto stack */
 		v1, _ = cpu.rs.Get()
-		cpu.ds.Push(v1)
+		cpu.Ds.Push(v1)
 	case ADD:
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.Push(v1 + v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.Push(v1 + v2)
 		break
 	case SUB:
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.Push(v1 - v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.Push(v1 - v2)
 		break
 	case MUL:
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.Push(v1 * v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.Push(v1 * v2)
 		break
 	case DIV:
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.Push(v1 / v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.Push(v1 / v2)
 		break
 	case ADD_ONE: /* Increment by 1 */
-		v1, _ = cpu.ds.Pop()
-		cpu.ds.Push(v1 + 1)
+		v1, _ = cpu.Ds.Pop()
+		cpu.Ds.Push(v1 + 1)
 		break
 	case SUB_ONE: /* Decrement by 1 */
-		v1, _ = cpu.ds.Pop()
-		cpu.ds.Push(v1 - 1)
+		v1, _ = cpu.Ds.Pop()
+		cpu.Ds.Push(v1 - 1)
 		break
 	case MAX:
-		v1, v2, _ = cpu.ds.Pop2()
+		v1, v2, _ = cpu.Ds.Pop2()
 		if v1 > v2 {
-			cpu.ds.Push(v1)
+			cpu.Ds.Push(v1)
 		} else {
-			cpu.ds.Push(v2)
+			cpu.Ds.Push(v2)
 		}
 		break
 	case MIN:
-		v1, v2, _ = cpu.ds.Pop2()
+		v1, v2, _ = cpu.Ds.Pop2()
 		if v1 < v2 {
-			cpu.ds.Push(v1)
+			cpu.Ds.Push(v1)
 		} else {
-			cpu.ds.Push(v2)
+			cpu.Ds.Push(v2)
 		}
 		break
 	case ABS:
-		v1, _ = cpu.ds.Pop()
+		v1, _ = cpu.Ds.Pop()
 		if v1 < 0 {
-			cpu.ds.Push(-v1)
+			cpu.Ds.Push(-v1)
 		} else {
-			cpu.ds.Push(v1)
+			cpu.Ds.Push(v1)
 		}
 		break
 	case MOD:
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.Push(v1 % v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.Push(v1 % v2)
 		break
 	case AND:
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.Push(v1 & v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.Push(v1 & v2)
 		break
 	case OR:
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.Push(v1 | v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.Push(v1 | v2)
 		break
 	case XOR:
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.Push(v1 ^ v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.Push(v1 ^ v2)
 		break
 	case NOT:
-		v1, _ = cpu.ds.Pop()
-		cpu.ds.PushBool(v1 == 0)
+		v1, _ = cpu.Ds.Pop()
+		cpu.Ds.PushBool(v1 == 0)
 		break
 	case EQ: /* Compare Equal */
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.PushBool(v1 == v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.PushBool(v1 == v2)
 		break
 	case NOT_EQ: /* Compare for Not Equal */
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.PushBool(v1 != v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.PushBool(v1 != v2)
 		break
 	case EQ_GREAT: /* Compare for Greater Or Equal */
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.PushBool(v1 >= v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.PushBool(v1 >= v2)
 		break
 	case GREAT: /* Compare for Greater */
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.PushBool(v1 > v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.PushBool(v1 > v2)
 		break
 	case EQ_LESS: /* Compare for Equal or Less */
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.PushBool(v1 <= v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.PushBool(v1 <= v2)
 		break
 	case LESS: /* Compare for Less */
-		v1, v2, _ = cpu.ds.Pop2()
-		cpu.ds.PushBool(v1 < v2)
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.PushBool(v1 < v2)
 		break
 	// case STORE:
-	// 	v1, v2, _ = cpu.ds.Pop2()
+	// 	v1, v2, _ = cpu.Ds.Pop2()
 	// 	cpu.mmu.WriteW(Addr(v2)+cpu.rbp, v1)
 	// 	break
 	case STORE:
-		v1, v2, _ = cpu.ds.Pop2()
+		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.mmu.WriteW(Addr(v2), v1)
 	// case LOAD:
-	// 	v1, _ := cpu.ds.Pop()
+	// 	v1, _ := cpu.Ds.Pop()
 	// 	value := cpu.mmu.ReadW(Addr(v1) + cpu.rbp)
 	// 	// fmt.Println("LOAD: ---", int(v1), int(value))
-	// 	cpu.ds.Push(value)
+	// 	cpu.Ds.Push(value)
 	// 	break
 	case FETCH:
-		v1, _ := cpu.ds.Pop()
+		v1, _ := cpu.Ds.Pop()
 		value := cpu.mmu.ReadW(Addr(v1))
 		// fmt.Println("FETCH: ---", int(v1), int(value))
-		cpu.ds.Push(value)
+		cpu.Ds.Push(value)
 	case JCC:
-		v1, v2, _ := cpu.ds.Pop2()
+		v1, v2, _ := cpu.Ds.Pop2()
 		// fmt.Println("JCC: ---", int(v1), int(v2))
 		if v1 != 0 {
 			cpu.pc = Addr(v2)
 		}
 	case JMP:
-		v1, _ := cpu.ds.Pop()
+		v1, _ := cpu.Ds.Pop()
 		cpu.pc = Addr(v1)
 	case GET_RSP:
-		cpu.ds.Push(Word(cpu.rsp))
+		cpu.Ds.Push(Word(cpu.rsp))
 		break
 	case INC_RSP:
 		cpu.rsp += WordSize
 		break
 	case SET_RSP:
-		v1, _ = cpu.ds.Pop()
+		v1, _ = cpu.Ds.Pop()
 		cpu.rsp = Addr(v1)
 		break
 	case GET_RBP:
-		cpu.ds.Push(Word(cpu.rbp))
+		cpu.Ds.Push(Word(cpu.rbp))
 		break
 	case INC_RBP:
 		cpu.rbp += WordSize
 		break
 	case SET_RBP:
-		v1, _ = cpu.ds.Pop()
+		v1, _ = cpu.Ds.Pop()
 		cpu.rbp = Addr(v1)
 		break
 	case GET_PC:
-		cpu.ds.Push(Word(cpu.pc))
+		cpu.Ds.Push(Word(cpu.pc))
 		break
 	case SET_PC:
-		v1, _ = cpu.ds.Pop()
+		v1, _ = cpu.Ds.Pop()
 		cpu.pc = Addr(v1)
 		break
 	case CALL:
-		v1, _ = cpu.ds.Pop()
+		v1, _ = cpu.Ds.Pop()
 		cpu.mmu.WriteW(cpu.rsp, Word(cpu.rsp))            // store rsp
 		cpu.mmu.WriteW(cpu.rsp+1*WordSize, Word(cpu.rbp)) // store rbp
 		cpu.mmu.WriteW(cpu.rsp+2*WordSize, Word(cpu.pc))  // store pc

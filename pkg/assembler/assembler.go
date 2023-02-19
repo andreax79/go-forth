@@ -124,7 +124,6 @@ func (status *CompilerStatus) AddCode(code ...fcpu.Word) error {
 // Compile a line, add compiled code to the program
 // Each source line contains some combination of the following fields:
 // label:    instructions/operands      ; comment
-
 func CompileLine(status *CompilerStatus, line string) error {
 	var err error
 	for _, token := range strings.Fields(line) {
