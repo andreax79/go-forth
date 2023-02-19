@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-var Symbols = map[string]fcpu.Word{
+var Instructions = map[string]fcpu.Word{
 	"HLT":    fcpu.HLT,
 	"NOP":    fcpu.NOP,
 	"EMIT":   fcpu.EMIT,
@@ -122,11 +122,14 @@ func (status *CompilerStatus) AddCode(code ...fcpu.Word) error {
 }
 
 // Compile a line, add compiled code to the program
+// Each source line contains some combination of the following fields:
+// label:    instructions/operands      ; comment
+
 func CompileLine(status *CompilerStatus, line string) error {
 	var err error
 	for _, token := range strings.Fields(line) {
 		token = strings.ToUpper(token)
-		if strings.HasPrefix(token, "/") { // Start of comment. The rest of the current line is ignored.
+		if strings.HasPrefix(token, ";") { // Start of comment. The rest of the current line is ignored.
 			break
 		}
 
@@ -147,7 +150,7 @@ func CompileLine(status *CompilerStatus, line string) error {
 			label := strings.TrimSuffix(token, ":")
 			status.labels[label] = status.pc
 
-		} else if c, exists := Symbols[token]; exists { // Token
+		} else if c, exists := Instructions[token]; exists { // Instruction
 			err = status.AddCode(c)
 
 		} else if c, exists := status.labels[token]; exists { // Label
