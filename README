@@ -1,24 +1,28 @@
 http://www.forth.org/Ting/Forth-for-the-Complete-Idiot/Forth-79-Handy-Reference.pdf
+https://people.ece.cornell.edu/land/courses/ece5760/DE2/Stack_cpu.html
 
 - forth
+  - nice syntax [OK]
   - forth comments [OK]
   - loop [OK]
   - forth definitions
 
-- variables [OK]
-- 2 pass compiler [OK]
-- map registers ram?
-- word/bytes
-- asciiz
+- assembler
+  - variables [OK]
+  - 2 pass compiler [OK]
+  - asciiz [OK]
+  - word/bytes
 
-- interrupt
-- mmu (virtual memory)
+- cpu
+  - map registers ram?
+  - interrupt
+  - mmu (virtual memory) [OK]
 
+
+------------------------------------------------------------------------------------------------
 - call/ret ==> accesso variabili 'globali' ?
 - I/O = emit
 - relative jump
-
-- nice syntax [OK]
 
 ------------------------
 Before subcall execution

@@ -56,15 +56,15 @@ var Pseudo = map[string]string{
 	"FALSE":  "push 0",  // ( -- false ) Return a false flag (0).
 
 	/* Comparison */
-	"=":  "=",
-	"<>": "<>",
-	">":  ">",
-	">=": ">=",
-	"<":  "<",
-	"<=": "<=",
-	"0<": "push 0 <", // ( n -- flag ) flag is true if and only if n is less than zero.
-	"0=": "push 0 =", // ( x -- flag ) flag is true if and only if x is equal to zero.
-	"0>": "push 0 >", // ( n -- flag ) flag is true if and only if n is greater than zero.
+	"=":  "eq",
+	"<>": "ne",
+	">":  "gt",
+	">=": "ge",
+	"<":  "lt",
+	"<=": "le",
+	"0<": "push 0 lt", // ( n -- flag ) flag is true if and only if n is less than zero.
+	"0=": "push 0 eq", // ( x -- flag ) flag is true if and only if x is equal to zero.
+	"0>": "push 0 gt", // ( n -- flag ) flag is true if and only if n is greater than zero.
 
 	/* Misc */
 	"!":    "store", // ( x a-addr -- ) Store x at a-addr.
@@ -152,7 +152,7 @@ func CompileLine(status *CompilerStatus, line string) error {
 		case token == "IF":
 			status.context.Enter(If)
 			if status.pass == Second {
-				status.Add("  not push if_{ID}_else jcc")
+				status.Add("  not push if_{ID}_else jnz")
 			}
 
 		case token == "ELSE":
@@ -202,7 +202,7 @@ func CompileLine(status *CompilerStatus, line string) error {
 				status.Add("  r_from r_fetch swap") // Push limit, i
 				status.Add("  push 1 add")          // Increment i
 				status.Add("  dup to_r")            // Store i on the return stack
-				status.Add("  > push do_{ID} jcc")  // Loop
+				status.Add("  gt push do_{ID} jnz") // Loop
 				status.Add("do_{ID}_end:")
 				status.Add("  r_from drop r_from drop") // Remove limit, i from the return stack
 			}
@@ -248,6 +248,9 @@ func CompileLine(status *CompilerStatus, line string) error {
 func CompilePass(input *os.File, output *os.File, pass Pass, labels map[string]bool) (*CompilerStatus, error) {
 	status := NewCompilerStatus(pass, output, labels)
 	scanner := bufio.NewScanner(input)
+	if status.pass == Second {
+		status.output.WriteString("start:\n")
+	}
 	for scanner.Scan() {
 		line := scanner.Text()
 		if len(line) == 0 {
@@ -267,28 +270,27 @@ func CompilePass(input *os.File, output *os.File, pass Pass, labels map[string]b
 }
 
 // Compile a program file and return the compiled code
-func Compile(filename string) (string, error) {
-	outputFilename := fmt.Sprintf("%s.pal", filename)
+func Compile(filename string, outputFilename string) error {
 	input, err := os.Open(filename)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer input.Close()
 	output, err := os.Create(outputFilename)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer output.Close()
 
 	// First pass
 	var status *CompilerStatus
 	if status, err = CompilePass(input, output, First, nil); err != nil {
-		return "", err
+		return err
 	}
 	// Second pass
 	input.Seek(0, 0) // rewind
 	if status, err = CompilePass(input, output, Second, status.labels); err != nil {
-		return "", err
+		return err
 	}
-	return outputFilename, nil
+	return nil
 }

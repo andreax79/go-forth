@@ -1,7 +1,9 @@
 package fcpu
 
 import (
+	"encoding/binary"
 	"fmt"
+	"os"
 	"unsafe"
 )
 
@@ -40,16 +42,14 @@ const (
 	R_FETCH /* Copy top of return stack onto stack */
 
 	/* Arithmetic */
-	ADD     /* Add */
-	SUB     /* Subtract */
-	MUL     /* Multiply */
-	DIV     /* Divide */
-	ADD_ONE /* Increment by 1*/
-	SUB_ONE /* Decrement by 1 */
-	MAX     /* Leave greater of two numbers */
-	MIN     /* Leave lesser of two numbers */
-	ABS     /* Absolute value */
-	MOD     /* Modulo */
+	ADD /* Add */
+	SUB /* Subtract */
+	MUL /* Multiply */
+	DIV /* Divide */
+	MAX /* Leave greater of two numbers */
+	MIN /* Leave lesser of two numbers */
+	ABS /* Absolute value */
+	MOD /* Modulo */
 
 	/* Logical */
 	AND /* Bitwise and */
@@ -58,23 +58,28 @@ const (
 	NOT /* Reverse true value */
 
 	/* Comparison */
-	EQ       /* Compare Equal */
-	NOT_EQ   /* Compare for Not Equal */
-	EQ_GREAT /* Compare for Greater Or Equal */
-	GREAT    /* Compare for Greater */
-	EQ_LESS  /* Compare for Equal or Less */
-	LESS     /* Compare for Less */
+	EQ /* Compare Equal */
+	NE /* Compare for Not Equal */
+	GE /* Compare for Greater Or Equal */
+	GT /* Compare for Greater */
+	LE /* Compare for Equal or Less */
+	LT /* Compare for Less */
 
 	/* Control and subroutines */
-	JCC /* Jump if condition is met */
+	JNZ /* jump if not zero */
+	JZ  /* jump if zero */
 	JMP /* Jump */
 	CALL
 	RET
+
+	//  PUSHPC /* Push PC */
+	//  POPPC /* Pop -> PC */
 
 	/* Memory */
 	STORE
 	// STORE_ABS
 	FETCH
+	FETCH_B
 	// LOAD_ABS
 
 	/* Registers */
@@ -88,43 +93,80 @@ const (
 	SET_PC
 )
 
-type Halt struct {
-}
+const BinaryMagic uint32 = 0xc9f7a115
 
-func (e *Halt) Error() string {
-	return "Halt"
+type BinaryHeader struct {
+	Magic    uint32
+	TextSize Addr // text size in bytes
+	DataSize Addr // initialized data size in bytes
+	TextBase Addr // base of text
+	DataBase Addr // base of data
 }
 
 type CPU struct {
 	mmu *MMU   // Memory Management Unit
 	pc  Addr   // Program counter
 	Ds  *Stack // Data Stack
-	rs  *Stack // Return Stack
+	Rs  *Stack // Return Stack
 	// OLD
-	rsp Addr // Return stack pointer
-	rbp Addr // Return stack base
+	rsp  Addr // Return stack pointer
+	rbp  Addr // Return stack base
+	Time uint32
 }
 
-func NewCPU(prog []byte) (cpu *CPU) {
+func NewCPU(filename string) (*CPU, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Read header
+	var header BinaryHeader
+	err = binary.Read(file, binary.LittleEndian, &header)
+	if err != nil {
+		return nil, err
+	}
+	if header.Magic != BinaryMagic {
+		return nil, new(ExecFormatError)
+	}
+
+	var cpu *CPU
 	cpu = new(CPU)
 	cpu.mmu = NewMMU()
-	cpu.pc = 0
+	cpu.pc = header.TextBase
 	cpu.Ds = NewStack(cpu.mmu, DataStackTop)
-	cpu.rs = NewStack(cpu.mmu, ReturnStackTop)
-	cpu.rbp = Addr(len(prog))
-	cpu.rsp = cpu.rbp
-	cpu.mmu.WriteBytes(0, prog)
-	return cpu
+	cpu.Rs = NewStack(cpu.mmu, ReturnStackTop)
+
+	// Load text segment
+	var text = make([]byte, header.TextSize)
+	_, err = file.Read(text)
+	if err != nil {
+		return nil, err
+	}
+	cpu.rbp = Addr(len(text))
+	cpu.mmu.WriteBytes(header.TextBase, text)
+
+	// Load data segment
+	if header.DataSize != 0 {
+		var data = make([]byte, header.DataSize)
+		_, err = file.Read(data)
+		if err != nil {
+			return nil, err
+		}
+		cpu.mmu.WriteBytes(header.DataBase, data)
+	}
+	return cpu, nil
 }
 
 func (cpu *CPU) PrintRegisters() {
 	var op Word
 	op = cpu.mmu.ReadW(cpu.pc)
-	// fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %-15s  stack: %s\n",
+	// fmt.Printf("pc: %8x  sp: %4x  rbp: %4x  rsp: %4x  op: %-15s  stack: %s\n",
 	// 	cpu.pc, cpu.Ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.Ds,
 	// )
-	fmt.Printf("pc: %4d  sp: %4d  rbp: %4d  rsp: %4d  op: %-15s  stack: %-30.30s  rs: %s\n",
-		cpu.pc, cpu.Ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.Ds, cpu.rs,
+	fmt.Printf("pc: %8x  sp: %8x  rbp: %4x  rsp: %4x  op: %-15s  stack: %-30.30s  rs: %s\n",
+		cpu.pc, cpu.Ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.Ds, cpu.Rs,
 	)
 }
 
@@ -138,6 +180,7 @@ func (cpu *CPU) Eval() error {
 	var v3 Word
 	op := cpu.mmu.ReadW(cpu.pc)
 	cpu.PrintRegisters()
+	cpu.Time++
 
 	cpu.pc += WordSize
 	switch op {
@@ -200,12 +243,12 @@ func (cpu *CPU) Eval() error {
 		break
 	case TO_R: /* Move top item to the return stack. */
 		v1, _ = cpu.Ds.Pop()
-		cpu.rs.Push(v1)
+		cpu.Rs.Push(v1)
 	case R_FROM: /* Retrieve item from the return stack. */
-		v1, _ = cpu.rs.Pop()
+		v1, _ = cpu.Rs.Pop()
 		cpu.Ds.Push(v1)
 	case R_FETCH: /* Copy top of return stack onto stack */
-		v1, _ = cpu.rs.Get()
+		v1, _ = cpu.Rs.Get()
 		cpu.Ds.Push(v1)
 	case ADD:
 		v1, v2, _ = cpu.Ds.Pop2()
@@ -222,14 +265,6 @@ func (cpu *CPU) Eval() error {
 	case DIV:
 		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 / v2)
-		break
-	case ADD_ONE: /* Increment by 1 */
-		v1, _ = cpu.Ds.Pop()
-		cpu.Ds.Push(v1 + 1)
-		break
-	case SUB_ONE: /* Decrement by 1 */
-		v1, _ = cpu.Ds.Pop()
-		cpu.Ds.Push(v1 - 1)
 		break
 	case MAX:
 		v1, v2, _ = cpu.Ds.Pop2()
@@ -279,23 +314,23 @@ func (cpu *CPU) Eval() error {
 		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.PushBool(v1 == v2)
 		break
-	case NOT_EQ: /* Compare for Not Equal */
+	case NE: /* Compare for Not Equal */
 		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.PushBool(v1 != v2)
 		break
-	case EQ_GREAT: /* Compare for Greater Or Equal */
+	case GE: /* Compare for Greater Or Equal */
 		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.PushBool(v1 >= v2)
 		break
-	case GREAT: /* Compare for Greater */
+	case GT: /* Compare for Greater */
 		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.PushBool(v1 > v2)
 		break
-	case EQ_LESS: /* Compare for Equal or Less */
+	case LE: /* Compare for Equal or Less */
 		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.PushBool(v1 <= v2)
 		break
-	case LESS: /* Compare for Less */
+	case LT: /* Compare for Less */
 		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.PushBool(v1 < v2)
 		break
@@ -317,10 +352,21 @@ func (cpu *CPU) Eval() error {
 		value := cpu.mmu.ReadW(Addr(v1))
 		// fmt.Println("FETCH: ---", int(v1), int(value))
 		cpu.Ds.Push(value)
-	case JCC:
+	case FETCH_B:
+		v1, _ := cpu.Ds.Pop()
+		value := Word(cpu.mmu.ReadB(Addr(v1)))
+		// fmt.Println("FETCH_B: ---", int(v1), int(value))
+		cpu.Ds.Push(value)
+	case JNZ: // jump if not zero
 		v1, v2, _ := cpu.Ds.Pop2()
-		// fmt.Println("JCC: ---", int(v1), int(v2))
+		// fmt.Println("JZ: ---", int(v1), int(v2))
 		if v1 != 0 {
+			cpu.pc = Addr(v2)
+		}
+	case JZ: // jump if zero
+		v1, v2, _ := cpu.Ds.Pop2()
+		// fmt.Println("JZ: ---", int(v1), int(v2))
+		if v1 == 0 {
 			cpu.pc = Addr(v2)
 		}
 	case JMP:

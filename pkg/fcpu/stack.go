@@ -100,7 +100,7 @@ func (stack *Stack) String() string {
 	var buf strings.Builder
 	fmt.Fprintf(&buf, "(%d) ", stack.Size())
 	for i := stack.origin - WordSize; i >= stack.pointer; i -= WordSize {
-		fmt.Fprintf(&buf, "%d ", stack.mmu.ReadW(i))
+		fmt.Fprintf(&buf, "%x ", uint32(stack.mmu.ReadW(i)))
 	}
 	return buf.String()
 }

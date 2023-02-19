@@ -1,11 +1,12 @@
-package fcpu
+package assembler
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	fcpu "github.com/andreax79/go-fcpu/pkg/fcpu"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -40,8 +41,6 @@ var Instructions = map[string]fcpu.Word{
 	"SUB": fcpu.SUB,
 	"MUL": fcpu.MUL,
 	"DIV": fcpu.DIV,
-	"1+":  fcpu.ADD_ONE,
-	"1-":  fcpu.SUB_ONE,
 	"MAX": fcpu.MAX,
 	"MIN": fcpu.MIN,
 	"ABS": fcpu.ABS,
@@ -54,22 +53,24 @@ var Instructions = map[string]fcpu.Word{
 	"NOT": fcpu.NOT,
 
 	/* Comparison */
-	"=":  fcpu.EQ,
-	"<>": fcpu.NOT_EQ,
-	">":  fcpu.GREAT,
-	">=": fcpu.EQ_GREAT,
-	"<":  fcpu.LESS,
-	"<=": fcpu.EQ_LESS,
+	"EQ": fcpu.EQ,
+	"NE": fcpu.NE,
+	"GT": fcpu.GT,
+	"GE": fcpu.GE,
+	"LT": fcpu.LT,
+	"LE": fcpu.LE,
 
 	/* Control and subroutines */
-	"JCC":  fcpu.JCC,
-	"JMP":  fcpu.JMP,
+	"JNZ":  fcpu.JNZ, // jump if not zero
+	"JZ":   fcpu.JZ,  // jump if zero
+	"JMP":  fcpu.JMP, // jump
 	"CALL": fcpu.CALL,
 	"RET":  fcpu.RET,
 
 	/* Memory */
-	"STORE": fcpu.STORE,
-	"FETCH": fcpu.FETCH,
+	"STORE":   fcpu.STORE,
+	"FETCH":   fcpu.FETCH,
+	"FETCH_B": fcpu.FETCH_B,
 }
 
 type Pass uint8
@@ -79,22 +80,45 @@ const (
 	Second      = 2
 )
 
+type Directive uint8
+
+const (
+	None Directive = iota
+	Word
+	Byte
+	Asciz
+	Ascii
+)
+
+const TextSegment fcpu.Addr = 0x8048100
+const DataSegment fcpu.Addr = 0x8074000
+
+type Segment struct {
+	start fcpu.Addr
+	addr  fcpu.Addr
+	buf   *bytes.Buffer
+}
+
 // Compiler status
 type CompilerStatus struct {
-	pc               fcpu.Addr
-	buf              *bytes.Buffer        // program code
-	labels           map[string]fcpu.Addr // map label names to addresses
-	variables        map[string]fcpu.Addr // map variable names to addresses
-	lastVariableAddr fcpu.Addr            // address of the last variable
-	pass             Pass                 // pass number (First/Second)
+	text    Segment              // text segment
+	data    Segment              // data segment
+	segment *Segment             // current segment
+	labels  map[string]fcpu.Addr // map label names to addresses
+	pass    Pass                 // pass number (First/Second)
 }
 
 func NewCompilerStatus(pass Pass, labels map[string]fcpu.Addr) (status *CompilerStatus) {
 	status = new(CompilerStatus)
-	status.pc = 0
-	status.buf = new(bytes.Buffer)
-	status.variables = map[string]fcpu.Addr{}
-	status.lastVariableAddr = 0
+	// Text segment
+	status.text.start = TextSegment
+	status.text.addr = status.text.start
+	status.text.buf = new(bytes.Buffer)
+	status.segment = &status.text
+	// Data segment
+	status.data.start = DataSegment
+	status.data.addr = status.data.start
+	status.data.buf = new(bytes.Buffer)
 	status.pass = pass
 	if labels != nil {
 		status.labels = labels
@@ -104,111 +128,181 @@ func NewCompilerStatus(pass Pass, labels map[string]fcpu.Addr) (status *Compiler
 	return status
 }
 
-// Add compiled code to the program
-func (status *CompilerStatus) AddCode(code ...fcpu.Word) error {
+// Add data to the program
+func (status *CompilerStatus) AddData(data fcpu.Word) error {
 	if status.pass == Second {
-		if code[0] == fcpu.PUSH && len(code) == 2 {
-			fmt.Printf("%04d %s %d\n", status.pc, code[0], int(code[1]))
-		} else {
-			fmt.Printf("%04d %s\n", status.pc, strings.Trim(fmt.Sprint(code), "[]"))
-		}
+		fmt.Printf("%04x %x\n", status.segment.addr, uint32(data))
 	}
-	err := binary.Write(status.buf, binary.LittleEndian, code)
+	err := binary.Write(status.segment.buf, binary.LittleEndian, data)
 	if err != nil {
 		return err
 	}
-	status.pc += fcpu.Addr(len(code)) * fcpu.WordSize
+	status.segment.addr += fcpu.WordSize
 	return nil
 }
 
-// Compile a line, add compiled code to the program
-// Each source line contains some combination of the following fields:
-// label:    instructions/operands      ; comment
-func CompileLine(status *CompilerStatus, line string) error {
-	var err error
-	for _, token := range strings.Fields(line) {
-		token = strings.ToUpper(token)
-		if strings.HasPrefix(token, ";") { // Start of comment. The rest of the current line is ignored.
-			break
-		}
-
-		if strings.HasPrefix(token, "@") { // Variable
-			variable := strings.TrimPrefix(token, "@")
-			addr, exists := status.variables[variable]
-			if !exists { // New variable
-				addr = status.lastVariableAddr
-				status.lastVariableAddr += fcpu.WordSize
-				status.variables[variable] = addr
-				if err = status.AddCode(fcpu.INC_RSP); err != nil { // Increment rsp
-					return err
-				}
-			}
-			err = status.AddCode(fcpu.PUSH, fcpu.Word(addr))
-
-		} else if strings.HasSuffix(token, ":") { // Define a symbol with the value of the current location counter (used to define labels)
-			label := strings.TrimSuffix(token, ":")
-			status.labels[label] = status.pc
-
-		} else if c, exists := Instructions[token]; exists { // Instruction
-			err = status.AddCode(c)
-
-		} else if c, exists := status.labels[token]; exists { // Label
-			err = status.AddCode(fcpu.Word(c))
-
-		} else { // Push
-			value, err := strconv.ParseInt(token, 0, 0)
-			if err != nil {
-				// Ignore undefined labels during the first compilation pass
-				if status.pass != First {
-					return err
-				}
-				value = -1 // TODO - test value
-			}
-			err = status.AddCode(fcpu.Word(value))
-		}
-		if err != nil {
-			return err
-		}
+// Add data to the program
+func (status *CompilerStatus) AddBytes(bytes []byte) error {
+	if status.pass == Second {
+		fmt.Printf("%04x %v\n", status.segment.addr, bytes)
 	}
+	status.segment.buf.Write(bytes)
+	status.segment.addr += fcpu.Addr(len(bytes))
+	return nil
+}
+
+// Add compiled code to the program
+func (status *CompilerStatus) AddCode(code ...fcpu.Word) error {
+	if status.pass == Second {
+		fmt.Printf("%04x %s\n", status.segment.addr, strings.Trim(fmt.Sprint(code), "[]"))
+	}
+	err := binary.Write(status.segment.buf, binary.LittleEndian, code)
+	if err != nil {
+		return err
+	}
+	status.segment.addr += fcpu.Addr(len(code)) * fcpu.WordSize
 	return nil
 }
 
 // Execute a compilation pass
+// Each source line contains some combination of the following fields:
+// label:    instructions/operands      ; comment
 func CompilePass(file *os.File, pass Pass, labels map[string]fcpu.Addr) (*CompilerStatus, error) {
 	status := NewCompilerStatus(pass, labels)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if len(line) == 0 {
-			continue
-		}
-		if err := CompileLine(status, line); err != nil {
+	lexer := NewLexer(file)
+	directive := None
+	for {
+		token, err := lexer.NextToken()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return status, nil
+			}
 			return nil, err
 		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
+
+		switch token.Type {
+		case INSTRUCTION:
+			err = status.AddCode(Instructions[token.Symbol])
+			directive = None
+		case DIRECTIVE:
+			switch token.Symbol {
+			case ".TEXT": // changes the current segment to text
+				status.segment = &status.text
+				directive = None
+			case ".DATA": // change the current segment to data
+				status.segment = &status.data
+				directive = None
+			case ".WORD":
+				directive = Word
+			case ".BYTE":
+				directive = Byte
+			case ".ASCIZ":
+				directive = Asciz
+			case ".ASCII":
+				directive = Ascii
+			default:
+				return nil, &UndefinedDirective{Label: token.Symbol, Line: token.Line}
+			}
+
+		case IDENTIFIER:
+			// Ignore undefined identifier during the first compilation pass
+			if status.pass != First {
+				label, exists := status.labels[token.Symbol]
+				if !exists {
+					return nil, &UndefinedSymbol{Label: token.Symbol, Line: token.Line}
+				}
+				err = status.AddData(fcpu.Word(label))
+			} else {
+				err = status.AddData(fcpu.Word(-1))
+			}
+			directive = None
+
+		case LABEL:
+			if _, exists := status.labels[token.Symbol]; exists && status.pass == First {
+				return nil, &LabelMultipleDefinition{Label: token.Symbol, Line: token.Line}
+			}
+			status.labels[token.Symbol] = status.segment.addr
+			directive = None
+
+		case NUMBER:
+			value, err := strconv.ParseInt(token.Symbol, 0, 0)
+			if err != nil {
+				return nil, err
+			}
+			switch directive {
+			case Byte:
+				err = status.AddBytes([]byte{byte(value)})
+			case None:
+				fallthrough
+			case Word:
+				err = status.AddData(fcpu.Word(value))
+			default:
+				return nil, &UnexpectedToken{Token: token.Symbol, Line: token.Line}
+			}
+
+		case STRING:
+			switch directive {
+			case Asciz:
+				err = status.AddBytes([]byte(token.Symbol + string(rune(0))))
+			case Ascii:
+				err = status.AddBytes([]byte(token.Symbol))
+			default:
+				return nil, &UnexpectedToken{Token: token.Symbol, Line: token.Line}
+			}
+		}
 	}
 	return status, nil
 }
 
+func WriteBinary(status *CompilerStatus, outputFilename string) error {
+	output, err := os.Create(outputFilename)
+	defer output.Close()
+	if err != nil {
+		return err
+	}
+	// Prepare header
+	var header fcpu.BinaryHeader
+	header.Magic = fcpu.BinaryMagic
+	header.TextSize = fcpu.Addr(status.text.buf.Len())
+	header.DataSize = fcpu.Addr(status.data.buf.Len())
+	header.TextBase = status.text.start
+	header.DataBase = status.data.start
+	// Write header
+	err = binary.Write(output, binary.LittleEndian, header)
+	if err != nil {
+		return err
+	}
+	// Write text
+	_, err = output.Write(status.text.buf.Bytes())
+	if err != nil {
+		return err
+	}
+	// Write data
+	_, err = output.Write(status.data.buf.Bytes())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Compile a program file and return the compiled code
-func Compile(filename string) ([]byte, error) {
+func Compile(filename string, outputFilename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer file.Close()
 
 	// First pass
 	var status *CompilerStatus
 	if status, err = CompilePass(file, First, nil); err != nil {
-		return nil, err
+		return err
 	}
 	// Second pass
 	file.Seek(0, 0) // rewind
 	if status, err = CompilePass(file, Second, status.labels); err != nil {
-		return nil, err
+		return err
 	}
-	return status.buf.Bytes(), nil
+	// Write output
+	return WriteBinary(status, outputFilename)
 }

@@ -4,23 +4,15 @@ import (
 	"fmt"
 	asm "github.com/andreax79/go-fcpu/pkg/assembler"
 	fcpu "github.com/andreax79/go-fcpu/pkg/fcpu"
-	forth "github.com/andreax79/go-fcpu/pkg/forth"
 	"os"
 )
 
 func main() {
-	var forthFilename string
 	var asmFilename string
 	var objFilename string
 	var err error
-	forthFilename = os.Args[1]
-	asmFilename = fmt.Sprintf("%s.pal", forthFilename)
-	err = forth.Compile(forthFilename, asmFilename)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	objFilename = fmt.Sprintf("%s.obj", forthFilename)
+	asmFilename = os.Args[1]
+	objFilename = fmt.Sprintf("%s.obj", asmFilename)
 	err = asm.Compile(asmFilename, objFilename)
 	if err != nil {
 		fmt.Println(err)

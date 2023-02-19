@@ -2,6 +2,7 @@ package forth
 
 import (
 	"errors"
+	"fmt"
 	asm "github.com/andreax79/go-fcpu/pkg/assembler"
 	fcpu "github.com/andreax79/go-fcpu/pkg/fcpu"
 	"os"
@@ -17,7 +18,7 @@ func runForth(source string) (*fcpu.CPU, error) {
 	var tmpDir string
 	var forthFilename string
 	var asmFilename string
-	var prog []byte
+	var objFilename string
 	// Create temp directory
 	tmpDir, err = os.MkdirTemp("", "test")
 	if err != nil {
@@ -30,17 +31,22 @@ func runForth(source string) (*fcpu.CPU, error) {
 		return nil, err
 	}
 	// Forth => Asm
-	asmFilename, err = Compile(forthFilename)
+	asmFilename = fmt.Sprintf("%s.pal", forthFilename)
+	err = Compile(forthFilename, asmFilename)
 	if err != nil {
 		return nil, err
 	}
 	// Asm => bytecode
-	prog, err = asm.Compile(asmFilename)
+	objFilename = fmt.Sprintf("%s.obj", forthFilename)
+	err = asm.Compile(asmFilename, objFilename)
 	if err != nil {
 		return nil, err
 	}
 	// Execute
-	cpu := fcpu.NewCPU(prog)
+	cpu, err := fcpu.NewCPU(objFilename)
+	if err != nil {
+		return nil, err
+	}
 	for {
 		err := cpu.Eval()
 		if err != nil {
