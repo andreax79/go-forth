@@ -12,7 +12,6 @@ import (
 var Pseudo = map[string]string{
 	/* Stack manipulation */
 	"DUP":   "dup",
-	"?DUP":  "cdup",
 	"DROP":  "drop",
 	"SWAP":  "swap",
 	"OVER":  "over",
@@ -134,13 +133,6 @@ func CompileLine(status *CompilerStatus, line string) error {
 		pseudo, isPseudo := Pseudo[token]
 		_, isLabel := status.labels[token]
 
-		/*		if strings.HasPrefix(token, "@") { // Variable
-				if status.pass == Second {
-					status.output.WriteString(strings.ToLower(fmt.Sprintf("  %s", token)))
-				}
-
-			} else*/
-
 		switch {
 		case strings.HasSuffix(token, ":"): // Define a symbol with the value of the current location counter (used to define labels)
 			label := strings.TrimSuffix(token, ":")
@@ -216,6 +208,16 @@ func CompileLine(status *CompilerStatus, line string) error {
 				status.Add("  r_from drop r_fetch to_r") // i := limit
 				status.Add("  push do_{ID}_end jmp")     // Go to end
 			}
+
+		case token == "?DUP":
+			status.context.Enter(If)
+			if status.pass == Second {
+				status.Add("  dup")
+				status.Add("  not push if_{ID}_then jnz")
+				status.Add("  dup")
+				status.Add("if_{ID}_then:")
+			}
+			status.context.Exit()
 
 		case isPseudo:
 			if status.pass == Second {

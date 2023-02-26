@@ -27,7 +27,6 @@ const (
 	PUSH  /* Push data onto stack */
 	ZERO  /* Push 0 onto stack */
 	DUP   /* Duplicates the top stack item */
-	CDUP  /* ?DUP - Duplicate only if non-zero */
 	DROP  /* Discards the top stack item */
 	SWAP  /* Reverses the top two stack items */
 	OVER  /* Make copy of second item on top */
@@ -105,7 +104,8 @@ type CPU struct {
 	Ds      *Stack // Data Stack
 	Rs      *Stack // Return Stack
 	Verbose bool
-	Time    uint32
+	Time    uint64
+	Limit   uint64
 }
 
 func NewCPU(filename string) (*CPU, error) {
@@ -176,6 +176,9 @@ func (cpu *CPU) Eval() error {
 		cpu.PrintRegisters()
 	}
 	cpu.Time++
+	if cpu.Limit != 0 && cpu.Time >= cpu.Limit {
+		return new(Halt)
+	}
 
 	cpu.pc += WordSize
 	switch op {
@@ -191,7 +194,7 @@ func (cpu *CPU) Eval() error {
 		v1, _ = cpu.Ds.Pop()
 		fmt.Printf(">>>> %d\n", int(v1))
 		break
-	case PERIOD:
+	case PERIOD: // TODO
 		v1, _ = cpu.Ds.Pop()
 		fmt.Printf(">>>> %d\n", int(v1))
 		break
@@ -203,12 +206,6 @@ func (cpu *CPU) Eval() error {
 		break
 	case DUP: /* Duplicates the top stack item */
 		cpu.Ds.Dup()
-		break
-	case CDUP: /* Duplicates the top stack item */
-		v1, _ = cpu.Ds.Get()
-		if v1 != 0 {
-			cpu.Ds.Dup()
-		}
 		break
 	case SWAP: /* Reverses the top two stack items */
 		v1, v2, _ = cpu.Ds.Pop2()

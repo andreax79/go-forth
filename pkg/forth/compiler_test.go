@@ -158,3 +158,10 @@ func TestLoopLeave(t *testing.T) {
 		"0 10 20 30 40",
 	)
 }
+
+func TestStack(t *testing.T) {
+	testForth(t,
+		"10 ?dup 0 ?dup",
+		"10 10 0",
+	)
+}

@@ -22,7 +22,6 @@ var Instructions = map[string]fcpu.Word{
 	"PUSH":  fcpu.PUSH,
 	"ZERO":  fcpu.ZERO,
 	"DUP":   fcpu.DUP,
-	"?DUP":  fcpu.CDUP,
 	"DROP":  fcpu.DROP,
 	"SWAP":  fcpu.SWAP,
 	"OVER":  fcpu.OVER,
