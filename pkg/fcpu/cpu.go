@@ -77,17 +77,13 @@ const (
 
 	/* Memory */
 	STORE
-	// STORE_ABS
 	FETCH
 	FETCH_B
-	// LOAD_ABS
 
 	/* Registers */
 	GET_RSP
-	INC_RSP
 	SET_RSP
 	GET_RBP
-	INC_RBP
 	SET_RBP
 	GET_PC
 	SET_PC
@@ -104,14 +100,12 @@ type BinaryHeader struct {
 }
 
 type CPU struct {
-	mmu *MMU   // Memory Management Unit
-	pc  Addr   // Program counter
-	Ds  *Stack // Data Stack
-	Rs  *Stack // Return Stack
-	// OLD
-	rsp  Addr // Return stack pointer
-	rbp  Addr // Return stack base
-	Time uint32
+	mmu     *MMU   // Memory Management Unit
+	pc      Addr   // Program counter
+	Ds      *Stack // Data Stack
+	Rs      *Stack // Return Stack
+	Verbose bool
+	Time    uint32
 }
 
 func NewCPU(filename string) (*CPU, error) {
@@ -144,7 +138,6 @@ func NewCPU(filename string) (*CPU, error) {
 	if err != nil {
 		return nil, err
 	}
-	cpu.rbp = Addr(len(text))
 	cpu.mmu.WriteBytes(header.TextBase, text)
 
 	// Load data segment
@@ -162,11 +155,11 @@ func NewCPU(filename string) (*CPU, error) {
 func (cpu *CPU) PrintRegisters() {
 	var op Word
 	op = cpu.mmu.ReadW(cpu.pc)
-	// fmt.Printf("pc: %8x  sp: %4x  rbp: %4x  rsp: %4x  op: %-15s  stack: %s\n",
-	// 	cpu.pc, cpu.Ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.Ds,
+	// fmt.Printf("pc: %8x  sp: %4x  rsp: %4x  op: %-15s  stack: %s\n",
+	// 	cpu.pc, cpu.Ds.pointer, cpu.Rs.pointer, op.String(), cpu.Ds,
 	// )
-	fmt.Printf("pc: %8x  sp: %8x  rbp: %4x  rsp: %4x  op: %-15s  stack: %-30.30s  rs: %s\n",
-		cpu.pc, cpu.Ds.pointer, cpu.rbp, cpu.rsp, op.String(), cpu.Ds, cpu.Rs,
+	fmt.Printf("pc: %8x  sp: %8x  rsp: %4x  op: %-15s  stack: %-30.30s  rs: %s\n",
+		cpu.pc, cpu.Ds.pointer, cpu.Rs.pointer, op.String(), cpu.Ds, cpu.Rs,
 	)
 }
 
@@ -179,7 +172,9 @@ func (cpu *CPU) Eval() error {
 	var v2 Word
 	var v3 Word
 	op := cpu.mmu.ReadW(cpu.pc)
-	cpu.PrintRegisters()
+	if cpu.Verbose {
+		cpu.PrintRegisters()
+	}
 	cpu.Time++
 
 	cpu.pc += WordSize
@@ -334,19 +329,9 @@ func (cpu *CPU) Eval() error {
 		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.PushBool(v1 < v2)
 		break
-	// case STORE:
-	// 	v1, v2, _ = cpu.Ds.Pop2()
-	// 	cpu.mmu.WriteW(Addr(v2)+cpu.rbp, v1)
-	// 	break
 	case STORE:
 		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.mmu.WriteW(Addr(v2), v1)
-	// case LOAD:
-	// 	v1, _ := cpu.Ds.Pop()
-	// 	value := cpu.mmu.ReadW(Addr(v1) + cpu.rbp)
-	// 	// fmt.Println("LOAD: ---", int(v1), int(value))
-	// 	cpu.Ds.Push(value)
-	// 	break
 	case FETCH:
 		v1, _ := cpu.Ds.Pop()
 		value := cpu.mmu.ReadW(Addr(v1))
@@ -359,7 +344,7 @@ func (cpu *CPU) Eval() error {
 		cpu.Ds.Push(value)
 	case JNZ: // jump if not zero
 		v1, v2, _ := cpu.Ds.Pop2()
-		// fmt.Println("JZ: ---", int(v1), int(v2))
+		// fmt.Println("JNZ: ---", int(v1), int(v2))
 		if v1 != 0 {
 			cpu.pc = Addr(v2)
 		}
@@ -373,24 +358,18 @@ func (cpu *CPU) Eval() error {
 		v1, _ := cpu.Ds.Pop()
 		cpu.pc = Addr(v1)
 	case GET_RSP:
-		cpu.Ds.Push(Word(cpu.rsp))
-		break
-	case INC_RSP:
-		cpu.rsp += WordSize
+		cpu.Ds.Push(Word(cpu.Rs.pointer))
 		break
 	case SET_RSP:
 		v1, _ = cpu.Ds.Pop()
-		cpu.rsp = Addr(v1)
+		cpu.Rs.pointer = Addr(v1)
 		break
 	case GET_RBP:
-		cpu.Ds.Push(Word(cpu.rbp))
-		break
-	case INC_RBP:
-		cpu.rbp += WordSize
+		cpu.Ds.Push(Word(cpu.Rs.origin))
 		break
 	case SET_RBP:
 		v1, _ = cpu.Ds.Pop()
-		cpu.rbp = Addr(v1)
+		cpu.Rs.origin = Addr(v1)
 		break
 	case GET_PC:
 		cpu.Ds.Push(Word(cpu.pc))
@@ -401,17 +380,20 @@ func (cpu *CPU) Eval() error {
 		break
 	case CALL:
 		v1, _ = cpu.Ds.Pop()
-		cpu.mmu.WriteW(cpu.rsp, Word(cpu.rsp))            // store rsp
-		cpu.mmu.WriteW(cpu.rsp+1*WordSize, Word(cpu.rbp)) // store rbp
-		cpu.mmu.WriteW(cpu.rsp+2*WordSize, Word(cpu.pc))  // store pc
-		cpu.rbp = cpu.rsp + 3*WordSize
-		cpu.rsp = cpu.rbp
+		cpu.Rs.Push(Word(cpu.pc))
+		// cpu.mmu.WriteW(cpu.rsp, Word(cpu.rsp))            // store rsp
+		// cpu.mmu.WriteW(cpu.rsp+1*WordSize, Word(cpu.rbp)) // store rbp
+		// cpu.mmu.WriteW(cpu.rsp+2*WordSize, Word(cpu.pc))  // store pc
+		// cpu.rbp = cpu.rsp + 3*WordSize
+		// cpu.rsp = cpu.rbp
 		cpu.pc = Addr(v1)
 		break
 	case RET:
-		cpu.pc = Addr(cpu.mmu.ReadW(cpu.rsp - 1*WordSize))  // return
-		cpu.rbp = Addr(cpu.mmu.ReadW(cpu.rsp - 2*WordSize)) // restore rbp
-		cpu.rsp = Addr(cpu.mmu.ReadW(cpu.rsp - 3*WordSize)) // restore rsp
+		// cpu.pc = Addr(cpu.mmu.ReadW(cpu.rsp - 1*WordSize))  // return
+		// cpu.rbp = Addr(cpu.mmu.ReadW(cpu.rsp - 2*WordSize)) // restore rbp
+		// cpu.rsp = Addr(cpu.mmu.ReadW(cpu.rsp - 3*WordSize)) // restore rsp
+		v1, _ = cpu.Rs.Pop()
+		cpu.pc = Addr(v1)
 		break
 	}
 	return nil

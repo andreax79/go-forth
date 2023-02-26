@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	asm "github.com/andreax79/go-fcpu/pkg/assembler"
 	fcpu "github.com/andreax79/go-fcpu/pkg/fcpu"
+	forth "github.com/andreax79/go-fcpu/pkg/forth"
 	"os"
 )
 
@@ -28,7 +30,10 @@ func run(objFilename string, verbose bool) {
 
 func main() {
 	var verbose bool
+	var forthFilename string
+	var asmFilename string
 	var objFilename string
+	var err error
 
 	flag.BoolVar(&verbose, "v", false, "Verbose")
 	flag.Parse()
@@ -36,6 +41,18 @@ func main() {
 		fmt.Println("no input file")
 		os.Exit(2)
 	}
-	objFilename = flag.Args()[0]
+	forthFilename = flag.Args()[0]
+	asmFilename = fmt.Sprintf("%s.pal", forthFilename)
+	err = forth.Compile(forthFilename, asmFilename)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	objFilename = fmt.Sprintf("%s.obj", forthFilename)
+	err = asm.Compile(asmFilename, objFilename, false)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	run(objFilename, verbose)
 }

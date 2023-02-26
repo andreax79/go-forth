@@ -106,10 +106,12 @@ type CompilerStatus struct {
 	segment *Segment             // current segment
 	labels  map[string]fcpu.Addr // map label names to addresses
 	pass    Pass                 // pass number (First/Second)
+	verbose bool                 // verbose
 }
 
-func NewCompilerStatus(pass Pass, labels map[string]fcpu.Addr) (status *CompilerStatus) {
+func NewCompilerStatus(pass Pass, labels map[string]fcpu.Addr, verbose bool) (status *CompilerStatus) {
 	status = new(CompilerStatus)
+	status.verbose = verbose
 	// Text segment
 	status.text.start = TextSegment
 	status.text.addr = status.text.start
@@ -130,7 +132,7 @@ func NewCompilerStatus(pass Pass, labels map[string]fcpu.Addr) (status *Compiler
 
 // Add data to the program
 func (status *CompilerStatus) AddData(data fcpu.Word) error {
-	if status.pass == Second {
+	if status.pass == Second && status.verbose {
 		fmt.Printf("%04x %x\n", status.segment.addr, uint32(data))
 	}
 	err := binary.Write(status.segment.buf, binary.LittleEndian, data)
@@ -143,7 +145,7 @@ func (status *CompilerStatus) AddData(data fcpu.Word) error {
 
 // Add data to the program
 func (status *CompilerStatus) AddBytes(bytes []byte) error {
-	if status.pass == Second {
+	if status.pass == Second && status.verbose {
 		fmt.Printf("%04x %v\n", status.segment.addr, bytes)
 	}
 	status.segment.buf.Write(bytes)
@@ -153,7 +155,7 @@ func (status *CompilerStatus) AddBytes(bytes []byte) error {
 
 // Add compiled code to the program
 func (status *CompilerStatus) AddCode(code ...fcpu.Word) error {
-	if status.pass == Second {
+	if status.pass == Second && status.verbose {
 		fmt.Printf("%04x %s\n", status.segment.addr, strings.Trim(fmt.Sprint(code), "[]"))
 	}
 	err := binary.Write(status.segment.buf, binary.LittleEndian, code)
@@ -167,8 +169,8 @@ func (status *CompilerStatus) AddCode(code ...fcpu.Word) error {
 // Execute a compilation pass
 // Each source line contains some combination of the following fields:
 // label:    instructions/operands      ; comment
-func CompilePass(file *os.File, pass Pass, labels map[string]fcpu.Addr) (*CompilerStatus, error) {
-	status := NewCompilerStatus(pass, labels)
+func CompilePass(file *os.File, pass Pass, labels map[string]fcpu.Addr, verbose bool) (*CompilerStatus, error) {
+	status := NewCompilerStatus(pass, labels, verbose)
 	lexer := NewLexer(file)
 	directive := None
 	for {
@@ -286,7 +288,7 @@ func WriteBinary(status *CompilerStatus, outputFilename string) error {
 }
 
 // Compile a program file and return the compiled code
-func Compile(filename string, outputFilename string) error {
+func Compile(filename string, outputFilename string, verbose bool) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -295,12 +297,12 @@ func Compile(filename string, outputFilename string) error {
 
 	// First pass
 	var status *CompilerStatus
-	if status, err = CompilePass(file, First, nil); err != nil {
+	if status, err = CompilePass(file, First, nil, verbose); err != nil {
 		return err
 	}
 	// Second pass
 	file.Seek(0, 0) // rewind
-	if status, err = CompilePass(file, Second, status.labels); err != nil {
+	if status, err = CompilePass(file, Second, status.labels, verbose); err != nil {
 		return err
 	}
 	// Write output

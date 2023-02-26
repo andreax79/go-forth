@@ -19,6 +19,8 @@ func runForth(source string) (*fcpu.CPU, error) {
 	var forthFilename string
 	var asmFilename string
 	var objFilename string
+	var verbose bool
+	verbose = false
 	// Create temp directory
 	tmpDir, err = os.MkdirTemp("", "test")
 	if err != nil {
@@ -38,7 +40,7 @@ func runForth(source string) (*fcpu.CPU, error) {
 	}
 	// Asm => bytecode
 	objFilename = fmt.Sprintf("%s.obj", forthFilename)
-	err = asm.Compile(asmFilename, objFilename)
+	err = asm.Compile(asmFilename, objFilename, verbose)
 	if err != nil {
 		return nil, err
 	}
