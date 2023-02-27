@@ -165,3 +165,12 @@ func TestStack(t *testing.T) {
 		"10 10 0",
 	)
 }
+
+func TestConstant(t *testing.T) {
+	testForth(t, `
+        32 constant space
+        space 32 -
+        `,
+		"0",
+	)
+}

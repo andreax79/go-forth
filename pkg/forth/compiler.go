@@ -97,13 +97,14 @@ func (e *CompilerError) Error() string {
 
 // Compiler status
 type CompilerStatus struct {
-	output  *os.File
-	labels  map[string]bool
-	pass    Pass // pass number (First/Second)
-	context *ContextStack
+	output    *os.File
+	labels    map[string]bool
+	constants map[string]int
+	pass      Pass // pass number (First/Second)
+	context   *ContextStack
 }
 
-func NewCompilerStatus(pass Pass, output *os.File, labels map[string]bool) (status *CompilerStatus) {
+func NewCompilerStatus(pass Pass, output *os.File, labels map[string]bool, constants map[string]int) (status *CompilerStatus) {
 	status = new(CompilerStatus)
 	status.pass = pass
 	status.output = output
@@ -112,6 +113,11 @@ func NewCompilerStatus(pass Pass, output *os.File, labels map[string]bool) (stat
 		status.labels = labels
 	} else {
 		status.labels = map[string]bool{}
+	}
+	if constants != nil {
+		status.constants = constants
+	} else {
+		status.constants = map[string]int{}
 	}
 	return status
 }
@@ -124,7 +130,9 @@ func (status *CompilerStatus) Add(s string) {
 // Compile a line, add compiled code to the program
 func CompileLine(status *CompilerStatus, line string) error {
 	var err error
-	for _, token := range strings.Fields(line) {
+	fields := strings.Fields(line)
+	for i := 0; i < len(fields); i++ {
+		token := fields[i]
 		token = strings.ToUpper(token)
 		if strings.HasPrefix(token, "\\") { // Start of comment. The rest of the current line is ignored.
 			break
@@ -132,6 +140,7 @@ func CompileLine(status *CompilerStatus, line string) error {
 
 		pseudo, isPseudo := Pseudo[token]
 		_, isLabel := status.labels[token]
+		constantValue, isConstant := status.constants[token]
 
 		switch {
 		case strings.HasSuffix(token, ":"): // Define a symbol with the value of the current location counter (used to define labels)
@@ -224,6 +233,11 @@ func CompileLine(status *CompilerStatus, line string) error {
 				status.output.WriteString(fmt.Sprintf("  %s", pseudo))
 			}
 
+		case isConstant:
+			if status.pass == Second {
+				status.output.WriteString(fmt.Sprintf("  push %d", constantValue))
+			}
+
 		case isLabel:
 			if status.pass == Second {
 				status.output.WriteString(fmt.Sprintf("  push %s", token))
@@ -231,8 +245,14 @@ func CompileLine(status *CompilerStatus, line string) error {
 
 		default:
 			// Ignore undefined labels/words during the first compilation pass
-			if status.pass == Second {
-				value, err := strconv.ParseInt(token, 0, 0)
+			value, err := strconv.ParseInt(token, 0, 0)
+			if i+2 < len(fields) && strings.ToUpper(fields[i+1]) == "CONSTANT" {
+				if status.pass == First {
+					label := strings.ToUpper(fields[i+2])
+					status.constants[label] = int(value)
+				}
+				i = i + 2
+			} else if status.pass == Second {
 				if err != nil {
 					return NewCompilerError(fmt.Sprintf("%s ?", strings.ToLower(token)))
 				}
@@ -247,8 +267,8 @@ func CompileLine(status *CompilerStatus, line string) error {
 }
 
 // Execute a compilation pass
-func CompilePass(input *os.File, output *os.File, pass Pass, labels map[string]bool) (*CompilerStatus, error) {
-	status := NewCompilerStatus(pass, output, labels)
+func CompilePass(input *os.File, output *os.File, pass Pass, labels map[string]bool, constants map[string]int) (*CompilerStatus, error) {
+	status := NewCompilerStatus(pass, output, labels, constants)
 	scanner := bufio.NewScanner(input)
 	if status.pass == Second {
 		status.output.WriteString("start:\n")
@@ -286,12 +306,12 @@ func Compile(filename string, outputFilename string) error {
 
 	// First pass
 	var status *CompilerStatus
-	if status, err = CompilePass(input, output, First, nil); err != nil {
+	if status, err = CompilePass(input, output, First, nil, nil); err != nil {
 		return err
 	}
 	// Second pass
 	input.Seek(0, 0) // rewind
-	if status, err = CompilePass(input, output, Second, status.labels); err != nil {
+	if status, err = CompilePass(input, output, Second, status.labels, status.constants); err != nil {
 		return err
 	}
 	return nil
