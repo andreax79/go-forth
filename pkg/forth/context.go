@@ -7,6 +7,7 @@ const (
 	If
 	Else
 	Do
+	Colon
 )
 
 type ContextStack struct {

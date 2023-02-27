@@ -169,8 +169,19 @@ func TestStack(t *testing.T) {
 func TestConstant(t *testing.T) {
 	testForth(t, `
         32 constant space
-        space 32 -
+        space BL -
         `,
 		"0",
+	)
+}
+
+func TestDefine(t *testing.T) {
+	testForth(t, `
+        : plus100  100 + ;
+        : minus100  100 - ;
+        100 plus100
+        50 minus100
+        `,
+		"200 -50",
 	)
 }

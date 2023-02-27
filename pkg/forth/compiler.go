@@ -8,8 +8,7 @@ import (
 	"strings"
 )
 
-// Pseudo instructions
-var Pseudo = map[string]string{
+var Definitions = map[string]string{
 	/* Stack manipulation */
 	"DUP":   "dup",
 	"DROP":  "drop",
@@ -85,6 +84,10 @@ type CompilerError struct {
 	message string
 }
 
+var Constants = map[string]int{
+	"BL": 32,
+}
+
 func NewCompilerError(message string) *CompilerError {
 	err := new(CompilerError)
 	err.message = message
@@ -97,11 +100,13 @@ func (e *CompilerError) Error() string {
 
 // Compiler status
 type CompilerStatus struct {
-	output    *os.File
-	labels    map[string]bool
-	constants map[string]int
-	pass      Pass // pass number (First/Second)
-	context   *ContextStack
+	output     *os.File
+	labels     map[string]bool
+	constants  map[string]int
+	pass       Pass // pass number (First/Second)
+	context    *ContextStack
+	buf        strings.Builder
+	dictionary map[string]string
 }
 
 func NewCompilerStatus(pass Pass, output *os.File, labels map[string]bool, constants map[string]int) (status *CompilerStatus) {
@@ -117,14 +122,23 @@ func NewCompilerStatus(pass Pass, output *os.File, labels map[string]bool, const
 	if constants != nil {
 		status.constants = constants
 	} else {
-		status.constants = map[string]int{}
+		status.constants = Constants
 	}
+	status.dictionary = Definitions
 	return status
 }
 
 func (status *CompilerStatus) Add(s string) {
 	s = strings.Replace(s, "{ID}", fmt.Sprint(status.context.Id()), -1)
-	status.output.WriteString("\n" + s + "\n")
+	status.WriteString("\n" + s + "\n")
+}
+
+func (status *CompilerStatus) WriteString(s string) {
+	if status.context.HasAnchestor(Colon) {
+		status.buf.WriteString(s)
+	} else {
+		status.output.WriteString(s)
+	}
 }
 
 // Compile a line, add compiled code to the program
@@ -138,18 +152,11 @@ func CompileLine(status *CompilerStatus, line string) error {
 			break
 		}
 
-		pseudo, isPseudo := Pseudo[token]
+		definition, hasDefinition := status.dictionary[token]
 		_, isLabel := status.labels[token]
 		constantValue, isConstant := status.constants[token]
 
 		switch {
-		case strings.HasSuffix(token, ":"): // Define a symbol with the value of the current location counter (used to define labels)
-			label := strings.TrimSuffix(token, ":")
-			status.labels[label] = true
-			if status.pass == Second {
-				status.output.WriteString(fmt.Sprintf("\n%s:", label))
-			}
-
 		case token == "IF":
 			status.context.Enter(If)
 			if status.pass == Second {
@@ -228,19 +235,45 @@ func CompileLine(status *CompilerStatus, line string) error {
 			}
 			status.context.Exit()
 
-		case isPseudo:
+		case token == ":": // Colon
+			status.context.Enter(Colon)
+			i++
+			if i >= len(fields) {
+				return NewCompilerError("missing colon definition")
+			}
+			label := strings.ToUpper(fields[i])
+			status.dictionary[label] = fmt.Sprintf("push %s call", strings.ToLower(label))
 			if status.pass == Second {
-				status.output.WriteString(fmt.Sprintf("  %s", pseudo))
+				status.Add(fmt.Sprintf("%s:", strings.ToLower(label)))
+			}
+
+		case token == ";": // Semicolon
+			if !status.context.HasAnchestor(Colon) {
+				return NewCompilerError("not a function")
+			}
+			status.Add("  ret")
+			status.context.Exit()
+
+		case hasDefinition:
+			if status.pass == Second {
+				status.WriteString(fmt.Sprintf("  %s", definition))
 			}
 
 		case isConstant:
 			if status.pass == Second {
-				status.output.WriteString(fmt.Sprintf("  push %d", constantValue))
+				status.WriteString(fmt.Sprintf("  push %d", constantValue))
 			}
 
 		case isLabel:
 			if status.pass == Second {
-				status.output.WriteString(fmt.Sprintf("  push %s", token))
+				status.WriteString(fmt.Sprintf("  push %s", token))
+			}
+
+		case strings.HasSuffix(token, ":"): // Define a symbol with the value of the current location counter (used to define labels)
+			label := strings.TrimSuffix(token, ":")
+			status.labels[label] = true
+			if status.pass == Second {
+				status.WriteString(fmt.Sprintf("\n%s:", label))
 			}
 
 		default:
@@ -256,7 +289,7 @@ func CompileLine(status *CompilerStatus, line string) error {
 				if err != nil {
 					return NewCompilerError(fmt.Sprintf("%s ?", strings.ToLower(token)))
 				}
-				status.output.WriteString(fmt.Sprintf("  push %d", value))
+				status.WriteString(fmt.Sprintf("  push %d", value))
 			}
 		}
 		if err != nil {
@@ -284,6 +317,9 @@ func CompilePass(input *os.File, output *os.File, pass Pass, labels map[string]b
 		if status.pass == Second {
 			status.output.WriteString("\n")
 		}
+	}
+	if status.pass == Second {
+		status.output.WriteString(status.buf.String())
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
