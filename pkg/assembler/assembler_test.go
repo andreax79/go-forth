@@ -63,7 +63,7 @@ func testAsm(t *testing.T, source string, compareArray []fcpu.Word) {
 		t.Fatalf("Wrong stack size: %d", cpu.Ds.Size())
 	}
 	if !reflect.DeepEqual(cpu.Ds.Array(), compareArray) {
-		t.Fatalf("Wrong stack content: %s expected: %s", cpu.Ds.Array(), compareArray)
+		t.Fatalf("Wrong stack content: %d expected: %d", cpu.Ds.Array(), compareArray)
 	}
 }
 

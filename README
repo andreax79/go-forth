@@ -5,19 +5,21 @@ https://people.ece.cornell.edu/land/courses/ece5760/DE2/Stack_cpu.html
   - nice syntax [OK]
   - forth comments [OK]
   - loop [OK]
-  - forth definitions
+  - forth definitions [OK]
 
 - assembler
   - variables [OK]
   - 2 pass compiler [OK]
   - asciiz [OK]
-  - word/bytes
+  - word/bytes [OK]
 
 - cpu
+  - mmu (virtual memory) [OK]
+  - short opcodes [OK]
   - map registers ram?
   - interrupt
-  - mmu (virtual memory) [OK]
-
+  - I/O
+  - shift
 
 ------------------------------------------------------------------------------------------------
 - call/ret ==> accesso variabili 'globali' ?
@@ -44,3 +46,14 @@ During subcall execution
 - local var
 - stack <- $sp
 
+	case CALL:
+		cpu.mmu.WriteW(cpu.rsp, Word(cpu.rsp))            // store rsp
+		cpu.mmu.WriteW(cpu.rsp+1*WordSize, Word(cpu.rbp)) // store rbp
+		cpu.mmu.WriteW(cpu.rsp+2*WordSize, Word(cpu.pc))  // store pc
+		cpu.rbp = cpu.rsp + 3*WordSize
+		break
+	case RET:
+		cpu.pc = Addr(cpu.mmu.ReadW(cpu.rsp - 1*WordSize))  // return
+		cpu.rbp = Addr(cpu.mmu.ReadW(cpu.rsp - 2*WordSize)) // restore rbp
+		cpu.rsp = Addr(cpu.mmu.ReadW(cpu.rsp - 3*WordSize)) // restore rsp
+		break

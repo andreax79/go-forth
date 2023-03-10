@@ -12,66 +12,7 @@ import (
 	"strings"
 )
 
-var Instructions = map[string]fcpu.Word{
-	"HLT":    fcpu.HLT,
-	"NOP":    fcpu.NOP,
-	"EMIT":   fcpu.EMIT,
-	"PERIOD": fcpu.PERIOD,
-
-	/* Stack manipulation */
-	"PUSH":  fcpu.PUSH,
-	"ZERO":  fcpu.ZERO,
-	"DUP":   fcpu.DUP,
-	"DROP":  fcpu.DROP,
-	"SWAP":  fcpu.SWAP,
-	"OVER":  fcpu.OVER,
-	"ROT":   fcpu.ROT,
-	"PICK":  fcpu.PICK,
-	"ROLL":  fcpu.ROLL,
-	"DEPTH": fcpu.DEPTH,
-
-	/* Return Stack manipulation */
-	"TO_R":    fcpu.TO_R,
-	"R_FROM":  fcpu.R_FROM,
-	"R_FETCH": fcpu.R_FETCH,
-
-	/* Arithmetic */
-	"ADD": fcpu.ADD,
-	"SUB": fcpu.SUB,
-	"MUL": fcpu.MUL,
-	"DIV": fcpu.DIV,
-	"MAX": fcpu.MAX,
-	"MIN": fcpu.MIN,
-	"ABS": fcpu.ABS,
-	"MOD": fcpu.MOD,
-
-	/* Logical */
-	"AND": fcpu.AND,
-	"OR":  fcpu.OR,
-	"XOR": fcpu.XOR,
-	"NOT": fcpu.NOT,
-
-	/* Comparison */
-	"EQ": fcpu.EQ,
-	"NE": fcpu.NE,
-	"GT": fcpu.GT,
-	"GE": fcpu.GE,
-	"LT": fcpu.LT,
-	"LE": fcpu.LE,
-
-	/* Control and subroutines */
-	"JNZ":  fcpu.JNZ, // jump if not zero
-	"JZ":   fcpu.JZ,  // jump if zero
-	"JMP":  fcpu.JMP, // jump
-	"CALL": fcpu.CALL,
-	"RET":  fcpu.RET,
-
-	/* Memory */
-	"STORE":   fcpu.STORE,
-	"FETCH":   fcpu.FETCH,
-	"FETCH_B": fcpu.FETCH_B,
-}
-
+// Assembler pass
 type Pass uint8
 
 const (
@@ -79,6 +20,7 @@ const (
 	Second      = 2
 )
 
+// Assembler directive
 type Directive uint8
 
 const (
@@ -89,7 +31,10 @@ const (
 	Ascii
 )
 
+// Text segement address
 const TextSegment fcpu.Addr = 0x8048100
+
+// Data segement address
 const DataSegment fcpu.Addr = 0x8074000
 
 type Segment struct {
@@ -153,7 +98,7 @@ func (status *CompilerStatus) AddBytes(bytes []byte) error {
 }
 
 // Add compiled code to the program
-func (status *CompilerStatus) AddCode(code ...fcpu.Word) error {
+func (status *CompilerStatus) AddCode(code ...fcpu.Op) error {
 	if status.pass == Second && status.verbose {
 		fmt.Printf("%04x %s\n", status.segment.addr, strings.Trim(fmt.Sprint(code), "[]"))
 	}
@@ -161,7 +106,7 @@ func (status *CompilerStatus) AddCode(code ...fcpu.Word) error {
 	if err != nil {
 		return err
 	}
-	status.segment.addr += fcpu.Addr(len(code)) * fcpu.WordSize
+	status.segment.addr += fcpu.Addr(len(code)) * fcpu.OpSize
 	return nil
 }
 
@@ -183,7 +128,18 @@ func CompilePass(file *os.File, pass Pass, labels map[string]fcpu.Addr, verbose 
 
 		switch token.Type {
 		case INSTRUCTION:
-			err = status.AddCode(Instructions[token.Symbol])
+			op := Instructions[token.Symbol]
+			if op == fcpu.PUSH {
+				// Align PUSH operand to word by inserting NOPs
+				allignament := status.segment.addr % fcpu.WordSize
+				for i := allignament; i < fcpu.WordSize-1; i++ {
+					err = status.AddCode(fcpu.NOP)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+			err = status.AddCode(op)
 			directive = None
 		case DIRECTIVE:
 			switch token.Symbol {
