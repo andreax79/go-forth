@@ -8,6 +8,7 @@ const (
 	Else
 	Do
 	Colon
+	Code
 )
 
 type ContextStack struct {

@@ -65,11 +65,11 @@ const (
 	LT /* Compare for Less */
 
 	/* Control and subroutines */
-	JNZ /* jump if not zero */
-	JZ  /* jump if zero */
-	JMP /* Jump */
-	CALL
-	RET
+	JNZ  /* jump if not zero */
+	JZ   /* jump if zero */
+	JMP  /* Jump */
+	CALL /* Subroutine calls */
+	RET  /* Subroutine return */
 
 	//  PUSHPC /* Push PC */
 	//  POPPC /* Pop -> PC */

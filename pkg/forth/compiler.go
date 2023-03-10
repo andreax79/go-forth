@@ -10,67 +10,68 @@ import (
 
 var Definitions = map[string]string{
 	/* Stack manipulation */
-	"DUP":   "dup",
-	"DROP":  "drop",
-	"SWAP":  "swap",
-	"OVER":  "over",
-	"ROT":   "rot",
-	"PICK":  "pick",
-	"ROLL":  "roll",
-	"DEPTH": "depth",
-	"NIP":   "swap drop",               // ( x1 x2 -- x2 ) Drop the first item below the top of stack.
-	"2DUP":  "over over",               // ( x1 x2 -- x1 x2 x1 x2 ) Duplicate cell pair x1 x2.
-	"2DROP": "drop drop",               // ( x1 x2 -- ) Drop cell pair x1 x2 from the stack.
-	"2OVER": "push 3 pick push 3 pick", // ( x1 x2 x3 x4 -- x1 x2 x3 x4 x1 x2 ) Copy cell pair x1 x2 to the top of the stack.
-	"2SWAP": "rot to_r rot r_from",     // ( x1 x2 x3 x4 -- x3 x4 x1 x2 ) Exchange the top two cell pairs.
+	"DUP":   ";code dup ;",
+	"DROP":  ";code drop ;",
+	"SWAP":  ";code swap ;",
+	"OVER":  ";code over ;",
+	"ROT":   ";code rot ;",
+	"PICK":  ";code pick ;",
+	"ROLL":  ";code roll ;",
+	"DEPTH": ";code depth ;",
+	"NIP":   "swap drop",     // ( x1 x2 -- x2 ) Drop the first item below the top of stack.
+	"2DUP":  "over over",     // ( x1 x2 -- x1 x2 x1 x2 ) Duplicate cell pair x1 x2.
+	"2DROP": "drop drop",     // ( x1 x2 -- ) Drop cell pair x1 x2 from the stack.
+	"2OVER": "3 pick 3 pick", // ( x1 x2 x3 x4 -- x1 x2 x3 x4 x1 x2 ) Copy cell pair x1 x2 to the top of the stack.
+	"2SWAP": "rot >r rot r>", // ( x1 x2 x3 x4 -- x3 x4 x1 x2 ) Exchange the top two cell pairs.
 
 	/* Return Stack manipulation */
-	">R": "to_r",    // ( x -- ) ( R: -- x ) Move x to the return stack.
-	"R>": "r_from",  // ( -- x ) ( R: x -- ) Move x from the return stack to the data stack.
-	"R@": "r_fetch", // ( -- x ) ( R: x -- x ) Copy x from the return stack to the data stack.
+	">R": ";code to_r ;",    // ( x -- ) ( R: -- x ) Move x to the return stack.
+	"R>": ";code r_from ;",  // ( -- x ) ( R: x -- ) Move x from the return stack to the data stack.
+	"R@": ";code r_fetch ;", // ( -- x ) ( R: x -- x ) Copy x from the return stack to the data stack.
 
 	/* Arithmetic */
-	"+":      "add",
-	"-":      "sub",
-	"*":      "mul",
-	"/":      "div",
-	"1+":     "push 1 add",
-	"1-":     "push 1 sub",
-	"2+":     "push 2 add",
-	"2-":     "push 2 sub",
-	"MAX":    "max",
-	"MIN":    "min",
-	"ABS":    "abs",
-	"MOD":    "mod",
-	"NEGATE": "push 0 swap sub", // Negate n1, giving its arithmetic inverse n2.
+	"+":      ";code add ;",
+	"-":      ";code sub ;",
+	"*":      ";code mul ;",
+	"/":      ";code div ;",
+	"1+":     "1 +",
+	"1-":     "1 -",
+	"2+":     "2 +",
+	"2-":     "2 -",
+	"MAX":    ";code max ;",
+	"MIN":    ";code min ;",
+	"ABS":    ";code abs ;",
+	"MOD":    ";code mod ;",
+	"NEGATE": "0 swap -", // Negate n1, giving its arithmetic inverse n2.
 
 	/* Logical */
-	"AND":    "and",
-	"OR":     "or",
-	"XOR":    "xor",
-	"NOT":    "not",
-	"INVERT": "not",     // ( x1 -- x2 ) Invert all bits of x1, giving its logical inverse x2.
-	"TRUE":   "push -1", // ( -- true ) Return a true flag, a value with all bits set (-1).
-	"FALSE":  "push 0",  // ( -- false ) Return a false flag (0).
+	"AND":    ";code and ;",
+	"OR":     ";code or ;",
+	"XOR":    ";code xor ;",
+	"NOT":    ";code not ;",
+	"INVERT": ";code not ;", // ( x1 -- x2 ) Invert all bits of x1, giving its logical inverse x2.
+	"TRUE":   "-1",          // ( -- true ) Return a true flag, a value with all bits set (-1).
+	"FALSE":  "0",           // ( -- false ) Return a false flag (0).
 
 	/* Comparison */
-	"=":  "eq",
-	"<>": "ne",
-	">":  "gt",
-	">=": "ge",
-	"<":  "lt",
-	"<=": "le",
-	"0<": "push 0 lt", // ( n -- flag ) flag is true if and only if n is less than zero.
-	"0=": "push 0 eq", // ( x -- flag ) flag is true if and only if x is equal to zero.
-	"0>": "push 0 gt", // ( n -- flag ) flag is true if and only if n is greater than zero.
+	"=":  ";code eq ;",
+	"<>": ";code ne ;",
+	">":  ";code gt ;",
+	">=": ";code ge ;",
+	"<":  ";code lt ;",
+	"<=": ";code le ;",
+	"0<": "0 <", // ( n -- flag ) flag is true if and only if n is less than zero.
+	"0=": "0 =", // ( x -- flag ) flag is true if and only if x is equal to zero.
+	"0>": "0 >", // ( n -- flag ) flag is true if and only if n is greater than zero.
 
 	/* Misc */
-	"!":    "store", // ( x a-addr -- ) Store x at a-addr.
-	"@":    "load",  // ( a-addr -- x ) x is the value stored at a-addr.
-	"EMIT": "emit",
-	".":    "period",
-	"HLT":  "hlt",
-	"NOP":  "nop",
+	"!":    ";code store ;", // ( x a-addr -- ) Store x at a-addr.
+	"@":    ";code load ;",  // ( a-addr -- x ) x is the value stored at a-addr.
+	"EMIT": ";code emit ;",
+	".":    ";code period ;",
+	"HLT":  ";code hlt ;",
+	"NOP":  ";code nop ;",
+	"CALL": ";code call ;",
 }
 
 type Pass uint8
@@ -95,7 +96,7 @@ func NewCompilerError(message string) *CompilerError {
 }
 
 func (e *CompilerError) Error() string {
-	return fmt.Sprintf("Compiler error: %s", e.message)
+	return fmt.Sprintf("Forth compiler error: %s", e.message)
 }
 
 // Compiler status
@@ -147,6 +148,15 @@ func CompileLine(status *CompilerStatus, line string) error {
 	fields := strings.Fields(line)
 	for i := 0; i < len(fields); i++ {
 		token := fields[i]
+		if status.context.Is(Code) {
+			if token == ";" {
+				status.context.Exit()
+			} else if status.pass == Second {
+				status.WriteString(" " + token)
+			}
+			continue
+		}
+
 		token = strings.ToUpper(token)
 		if strings.HasPrefix(token, "\\") { // Start of comment. The rest of the current line is ignored.
 			break
@@ -242,9 +252,10 @@ func CompileLine(status *CompilerStatus, line string) error {
 				return NewCompilerError("missing colon definition")
 			}
 			label := strings.ToUpper(fields[i])
-			status.dictionary[label] = fmt.Sprintf("push %s call", strings.ToLower(label))
+			status.labels[label+"_COL"] = true
+			status.dictionary[label] = fmt.Sprintf("%s_col call", strings.ToLower(label))
 			if status.pass == Second {
-				status.Add(fmt.Sprintf("%s:", strings.ToLower(label)))
+				status.Add(fmt.Sprintf("%s_col:", strings.ToLower(label)))
 			}
 
 		case token == ";": // Semicolon
@@ -254,10 +265,8 @@ func CompileLine(status *CompilerStatus, line string) error {
 			status.Add("  ret")
 			status.context.Exit()
 
-		case hasDefinition:
-			if status.pass == Second {
-				status.WriteString(fmt.Sprintf("  %s", definition))
-			}
+		case token == ";CODE": // Code
+			status.context.Enter(Code)
 
 		case isConstant:
 			if status.pass == Second {
@@ -274,6 +283,14 @@ func CompileLine(status *CompilerStatus, line string) error {
 			status.labels[label] = true
 			if status.pass == Second {
 				status.WriteString(fmt.Sprintf("\n%s:", label))
+			}
+
+		case hasDefinition:
+			if status.pass == Second {
+				err = CompileLine(status, definition)
+				if err != nil {
+					return err
+				}
 			}
 
 		default:
