@@ -16,6 +16,16 @@ type Word int32
 
 const WordSize = Addr(unsafe.Sizeof(Word(0)))
 
+// BUS     = 0o004
+// INVAL   = 0o010
+// DEBUG   = 0o014
+// IOT     = 0o020
+// TTYIN   = 0o060
+// TTYOUT  = 0o064
+// FAULT   = 0o250
+// CLOCK   = 0o100
+// RK      = 0o220
+
 //go:generate stringer -type=Word
 const (
 	HLT Word = iota + 0x10000
@@ -71,21 +81,19 @@ const (
 	CALL /* Subroutine calls */
 	RET  /* Subroutine return */
 
-	//  PUSHPC /* Push PC */
-	//  POPPC /* Pop -> PC */
-
 	/* Memory */
 	STORE
+	STORE_B
 	FETCH
 	FETCH_B
 
 	/* Registers */
-	GET_RSP
-	SET_RSP
-	GET_RBP
-	SET_RBP
-	GET_PC
-	SET_PC
+	PUSHRSP /* Push RSP */
+	POPRSP  /* Pop -> RSP */
+	PUSHRBP /* Push RBP */
+	POPRBP  /* Pop -> RBP */
+	PUSHPC  /* Push PC */
+	POPPC   /* Pop -> PC */
 )
 
 const BinaryMagic uint32 = 0xc9f7a115
@@ -329,6 +337,9 @@ func (cpu *CPU) Eval() error {
 	case STORE:
 		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.mmu.WriteW(Addr(v2), v1)
+	case STORE_B:
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.mmu.WriteB(Addr(v2), byte(v1))
 	case FETCH:
 		v1, _ := cpu.Ds.Pop()
 		value := cpu.mmu.ReadW(Addr(v1))
@@ -354,24 +365,24 @@ func (cpu *CPU) Eval() error {
 	case JMP:
 		v1, _ := cpu.Ds.Pop()
 		cpu.pc = Addr(v1)
-	case GET_RSP:
+	case PUSHRSP:
 		cpu.Ds.Push(Word(cpu.Rs.pointer))
 		break
-	case SET_RSP:
+	case POPRSP:
 		v1, _ = cpu.Ds.Pop()
 		cpu.Rs.pointer = Addr(v1)
 		break
-	case GET_RBP:
+	case PUSHRBP:
 		cpu.Ds.Push(Word(cpu.Rs.origin))
 		break
-	case SET_RBP:
+	case POPRBP:
 		v1, _ = cpu.Ds.Pop()
 		cpu.Rs.origin = Addr(v1)
 		break
-	case GET_PC:
+	case PUSHPC:
 		cpu.Ds.Push(Word(cpu.pc))
 		break
-	case SET_PC:
+	case POPPC:
 		v1, _ = cpu.Ds.Pop()
 		cpu.pc = Addr(v1)
 		break
