@@ -209,6 +209,12 @@ func (cpu *CPU) Eval() error {
 	case MOD:
 		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 % v2)
+	case LSHIFT:
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.Push(v1 << v2)
+	case RSHIFT:
+		v1, v2, _ = cpu.Ds.Pop2()
+		cpu.Ds.Push(v1 >> v2)
 	case AND:
 		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 & v2)

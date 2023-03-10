@@ -73,3 +73,22 @@ func TestPush(t *testing.T) {
 		[]fcpu.Word{20},
 	)
 }
+
+func TestLShift(t *testing.T) {
+	testAsm(t,
+		`push 1 push 0 lshift
+		 push 1 push 1 lshift
+		 push 1 push 2 lshift`,
+		[]fcpu.Word{1, 2, 4},
+	)
+}
+
+func TestRShift(t *testing.T) {
+	testAsm(t,
+		`push 1 push 0 rshift
+		 push 1 push 1 rshift
+		 push 2 push 1 rshift
+		 push 4 push 2 rshift`,
+		[]fcpu.Word{1, 0, 1, 1},
+	)
+}

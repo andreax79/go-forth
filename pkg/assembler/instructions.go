@@ -28,14 +28,16 @@ var Instructions = map[string]fcpu.Op{
 	"R_FETCH": fcpu.R_FETCH,
 
 	/* Arithmetic */
-	"ADD": fcpu.ADD,
-	"SUB": fcpu.SUB,
-	"MUL": fcpu.MUL,
-	"DIV": fcpu.DIV,
-	"MAX": fcpu.MAX,
-	"MIN": fcpu.MIN,
-	"ABS": fcpu.ABS,
-	"MOD": fcpu.MOD,
+	"ADD":    fcpu.ADD,
+	"SUB":    fcpu.SUB,
+	"MUL":    fcpu.MUL,
+	"DIV":    fcpu.DIV,
+	"MAX":    fcpu.MAX,
+	"MIN":    fcpu.MIN,
+	"ABS":    fcpu.ABS,
+	"MOD":    fcpu.MOD,
+	"LSHIFT": fcpu.LSHIFT, // Perform a logical left shift
+	"RSHIFT": fcpu.RSHIFT, // Perform a logical right shift
 
 	/* Logical */
 	"AND": fcpu.AND,

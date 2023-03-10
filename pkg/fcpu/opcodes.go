@@ -25,23 +25,25 @@ const (
 	OVER   /* Make copy of second item on top */
 	ROT    /* Rotate third item to top */
 	PICK   /* Copy n-th item to too */
-	ROLL   /* Rotate n-th Item to top. */
+	ROLL   /* Rotate n-th Item to top */
 	DEPTH  /* Count number of items on stack */
 
 	/* Return Stack manipulation */
-	TO_R    /* Move top item to the return stack. */
-	R_FROM  /* Retrieve item from the return stack. */
+	TO_R    /* Move top item to the return stack */
+	R_FROM  /* Retrieve item from the return stack */
 	R_FETCH /* Copy top of return stack onto stack */
 
 	/* Arithmetic */
-	ADD /* Add */
-	SUB /* Subtract */
-	MUL /* Multiply */
-	DIV /* Divide */
-	MAX /* Leave greater of two numbers */
-	MIN /* Leave lesser of two numbers */
-	ABS /* Absolute value */
-	MOD /* Modulo */
+	ADD    /* Add */
+	SUB    /* Subtract */
+	MUL    /* Multiply */
+	DIV    /* Divide */
+	MAX    /* Leave greater of two numbers */
+	MIN    /* Leave lesser of two numbers */
+	ABS    /* Absolute value */
+	MOD    /* Modulo */
+	LSHIFT /* Perform a logical left shift */
+	RSHIFT /* Perform a logical right shift */
 
 	/* Logical */
 	AND /* Bitwise and */

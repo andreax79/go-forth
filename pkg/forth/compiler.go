@@ -42,7 +42,9 @@ var Definitions = map[string]string{
 	"MIN":    ";code min ;",
 	"ABS":    ";code abs ;",
 	"MOD":    ";code mod ;",
-	"NEGATE": "0 swap -", // Negate n1, giving its arithmetic inverse n2.
+	"LSHIFT": ";code lshift ;", // Perform a logical left shift
+	"RSHIFT": ";code rshift ;", // Perform a logical right shift
+	"NEGATE": "0 swap -",       // Negate n1, giving its arithmetic inverse n2
 
 	/* Logical */
 	"AND":    ";code and ;",
