@@ -32,6 +32,7 @@ var Instructions = map[string]fcpu.Op{
 	"SUB":    fcpu.SUB,
 	"MUL":    fcpu.MUL,
 	"DIV":    fcpu.DIV,
+	"DIVMOD": fcpu.DIVMOD,
 	"MAX":    fcpu.MAX,
 	"MIN":    fcpu.MIN,
 	"ABS":    fcpu.ABS,

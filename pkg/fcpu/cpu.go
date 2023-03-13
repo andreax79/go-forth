@@ -131,7 +131,7 @@ func (cpu *CPU) Eval() error {
 		cpu.pc += 1
 	case EMIT: // TODO
 		v1, _ = cpu.Ds.Pop()
-		fmt.Printf(">>>> %d\n", int(v1))
+		fmt.Printf("%c", int(v1))
 	case PERIOD: // TODO
 		v1, _ = cpu.Ds.Pop()
 		fmt.Printf(">>>> %d\n", int(v1))
@@ -185,6 +185,15 @@ func (cpu *CPU) Eval() error {
 	case DIV:
 		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 / v2)
+	case DIVMOD:
+		v1, v2, _ = cpu.Ds.Pop2()
+		quot := v1 / v2
+		rem := v1 % v2
+		if rem != 0 && v1*v2 < 0 {
+			quot--
+		}
+		cpu.Ds.Push(rem)
+		cpu.Ds.Push(quot)
 	case MAX:
 		v1, v2, _ = cpu.Ds.Pop2()
 		if v1 > v2 {

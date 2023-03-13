@@ -185,3 +185,18 @@ func TestDefine(t *testing.T) {
 		"200 -50",
 	)
 }
+
+func TestDivMod(t *testing.T) {
+	testForth(t, `
+        100 10 /
+        100 10 /mod
+        99 100 /mod
+        -99 100 /mod
+        -99 -100 /mod
+        -99 -100 mod
+        -99 100 mod
+        99 100 mod
+        `,
+		"10 0 10 99 0 -99 -1 -99 0 -99 -99 99",
+	)
+}

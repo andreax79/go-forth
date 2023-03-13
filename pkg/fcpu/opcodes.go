@@ -38,6 +38,7 @@ const (
 	SUB    /* Subtract */
 	MUL    /* Multiply */
 	DIV    /* Divide */
+	DIVMOD /* Returns remainder and quotient */
 	MAX    /* Leave greater of two numbers */
 	MIN    /* Leave lesser of two numbers */
 	ABS    /* Absolute value */

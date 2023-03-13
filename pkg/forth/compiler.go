@@ -34,6 +34,8 @@ var Definitions = map[string]string{
 	"-":      ";code sub ;",
 	"*":      ";code mul ;",
 	"/":      ";code div ;",
+	"/MOD":   ";code divmod ;",
+	"MOD":    ";code mod ;",
 	"1+":     "1 +",
 	"1-":     "1 -",
 	"2+":     "2 +",
@@ -41,7 +43,6 @@ var Definitions = map[string]string{
 	"MAX":    ";code max ;",
 	"MIN":    ";code min ;",
 	"ABS":    ";code abs ;",
-	"MOD":    ";code mod ;",
 	"LSHIFT": ";code lshift ;", // Perform a logical left shift
 	"RSHIFT": ";code rshift ;", // Perform a logical right shift
 	"NEGATE": "0 swap -",       // Negate n1, giving its arithmetic inverse n2
@@ -68,12 +69,13 @@ var Definitions = map[string]string{
 
 	/* Misc */
 	"!":    ";code store ;", // ( x a-addr -- ) Store x at a-addr.
-	"@":    ";code load ;",  // ( a-addr -- x ) x is the value stored at a-addr.
+	"@":    ";code fetch ;", // ( a-addr -- x ) x is the value stored at a-addr.
 	"EMIT": ";code emit ;",
 	".":    ";code period ;",
 	"HLT":  ";code hlt ;",
 	"NOP":  ";code nop ;",
 	"CALL": ";code call ;",
+	"JMP":  ";code jmp ;",
 }
 
 type Pass uint8
