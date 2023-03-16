@@ -263,6 +263,21 @@ func CompileLine(status *CompilerStatus, line string) error {
 				status.Add("  push do_{ID}_end jmp")     // Go to end
 			}
 
+		case token == "BEGIN": // BEGIN ... UNTIL - Loop back to BEGIN until true at UNTIL
+			status.context.Enter(Begin)
+			if status.pass == Second {
+				status.Add("begin_{ID}:")
+			}
+
+		case token == "UNTIL":
+			if !status.context.Is(Begin) {
+				return NewCompilerError("Unbalanced control structure 'until'")
+			}
+			if status.pass == Second {
+				status.Add("  push begin_{ID} jz") // Loop
+			}
+			status.context.Exit()
+
 		case token == "?DUP":
 			status.context.Enter(If)
 			if status.pass == Second {

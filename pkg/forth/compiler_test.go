@@ -159,6 +159,15 @@ func TestLoopLeave(t *testing.T) {
 	)
 }
 
+func TestBeginUntil(t *testing.T) {
+	testForth(t,
+		`10 5 begin dup 1 - dup 0= until
+		 20 5 begin 1 - dup 0= until`,
+		`10 5 4 3 2 1 0
+		 20 0`,
+	)
+}
+
 func TestStack(t *testing.T) {
 	testForth(t,
 		"10 ?dup 0 ?dup",

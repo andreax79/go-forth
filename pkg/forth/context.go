@@ -7,6 +7,7 @@ const (
 	If
 	Else
 	Do
+	Begin // Loop
 	Colon
 	Code
 	Paren // Parenthesis comments
