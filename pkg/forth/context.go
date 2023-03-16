@@ -9,6 +9,7 @@ const (
 	Do
 	Colon
 	Code
+	Paren // Parenthesis comments
 )
 
 type ContextStack struct {

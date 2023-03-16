@@ -76,6 +76,7 @@ var Definitions = map[string]string{
 	"NOP":  ";code nop ;",
 	"CALL": ";code call ;",
 	"JMP":  ";code jmp ;",
+	"RET":  ";code ret ;",
 }
 
 type Pass uint8
@@ -90,7 +91,7 @@ type CompilerError struct {
 }
 
 var Constants = map[string]int{
-	"BL": 32,
+	"BL": 32, // space
 }
 
 func NewCompilerError(message string) *CompilerError {
@@ -152,7 +153,18 @@ func CompileLine(status *CompilerStatus, line string) error {
 	fields := strings.Fields(line)
 	for i := 0; i < len(fields); i++ {
 		token := fields[i]
-		if status.context.Is(Code) {
+
+		if status.context.Is(Paren) { // Parenthesis comments
+			t := strings.SplitN(token, ")", 2)
+			if len(t) < 2 {
+				continue
+			}
+			status.context.Exit()
+			token = t[1]
+			if len(token) == 0 {
+				continue
+			}
+		} else if status.context.Is(Code) {
 			if token == ";" {
 				status.context.Exit()
 			} else if status.pass == Second {
@@ -271,6 +283,9 @@ func CompileLine(status *CompilerStatus, line string) error {
 
 		case token == ";CODE": // Code
 			status.context.Enter(Code)
+
+		case token == "(": // Paren
+			status.context.Enter(Paren)
 
 		case isConstant:
 			if status.pass == Second {

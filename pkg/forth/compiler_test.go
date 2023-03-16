@@ -200,3 +200,15 @@ func TestDivMod(t *testing.T) {
 		"10 0 10 99 0 -99 -1 -99 0 -99 -99 99",
 	)
 }
+
+func TestComments(t *testing.T) {
+	testForth(t, `
+        \ comment
+        1
+        ( aaa. - ) 2
+        ( bbb / ccc ddd)3
+        ( eee)
+        `,
+		"1 2 3",
+	)
+}
