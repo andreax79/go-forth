@@ -3,6 +3,7 @@ package forth
 import (
 	"bufio"
 	"fmt"
+	fcpu "github.com/andreax79/go-fcpu/pkg/fcpu"
 	"os"
 	"strconv"
 	"strings"
@@ -25,9 +26,12 @@ var Definitions = map[string]string{
 	"2SWAP": "rot >r rot r>", // ( x1 x2 x3 x4 -- x3 x4 x1 x2 ) Exchange the top two cell pairs.
 
 	/* Return Stack manipulation */
-	">R": ";code to_r ;",    // ( x -- ) ( R: -- x ) Move x to the return stack.
-	"R>": ";code r_from ;",  // ( -- x ) ( R: x -- ) Move x from the return stack to the data stack.
-	"R@": ";code r_fetch ;", // ( -- x ) ( R: x -- x ) Copy x from the return stack to the data stack.
+	">R":  ";code to_r ;",          // ( x -- ) ( R: -- x ) Move x to the return stack.
+	"R>":  ";code r_from ;",        // ( -- x ) ( R: x -- ) Move x from the return stack to the data stack.
+	"R@":  ";code r_fetch ;",       // ( -- x ) ( R: x -- x ) Copy x from the return stack to the data stack.
+	"2R@": "r> r> 2dup >r >r swap", // ( -- x1 x2 ) ( R: x1 x2 -- x1 x2 ) Copy cell pair x1 x2 from the return stack.
+	"2R>": "r> r> swap",            // ( -- x1 x2 ) ( R: x1 x2 -- ) Transfer cell pair x1 x2 from the return stack.
+	"2>R": "swap >r >r",            // ( x1 x2 -- ) ( R: -- x1 x2 ) Transfer cell pair x1 x2 to the return stack.
 
 	/* Arithmetic */
 	"+":      ";code add ;",
@@ -67,9 +71,17 @@ var Definitions = map[string]string{
 	"0=": "0 =", // ( x -- flag ) flag is true if and only if x is equal to zero.
 	"0>": "0 >", // ( n -- flag ) flag is true if and only if n is greater than zero.
 
+	/* Memory */
+	"!":     ";code store ;",                    // ( x a-addr -- ) Store x at a-addr.
+	"@":     ";code fetch ;",                    // ( a-addr -- x ) x is the value stored at a-addr.
+	"C!":    ";code store_b ;",                  // ( char c-addr -- ) Store char at c-addr.
+	"C@":    ";code fetch_b ;",                  // ( c-addr -- x ) Fetch the character stored at c-addr.
+	"+!":    "dup >r @ + r> !",                  // ( n a-addr -- ) Add n to the number at a-addr.
+	"2!":    "swap over ! cell+ !",              // ( x1 x2 a-addr -- ) Store the cell pair x1 at a-addr and x2 at the next consecutive cell.
+	"2@":    "dup cell+ @ swap @",               // ( a-addr -- x1 x2 ) Fetch the cell pair x1 x2 stored at a-addr.
+	"CELL+": fmt.Sprintf("%d +", fcpu.WordSize), // ( a-addr1 -- a-addr2 ) Add the word size to a-addr1, giving a-addr2.
+
 	/* Misc */
-	"!":    ";code store ;", // ( x a-addr -- ) Store x at a-addr.
-	"@":    ";code fetch ;", // ( a-addr -- x ) x is the value stored at a-addr.
 	"EMIT": ";code emit ;",
 	".":    ";code period ;",
 	"HLT":  ";code hlt ;",

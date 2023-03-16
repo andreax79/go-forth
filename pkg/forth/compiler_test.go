@@ -212,3 +212,22 @@ func TestComments(t *testing.T) {
 		"1 2 3",
 	)
 }
+
+func TestMemory(t *testing.T) {
+	testForth(t, `
+        1024 constant mem
+        ( test !, @, +!)
+        999 mem !
+        5
+        mem @
+        1 mem +!
+        mem @
+        ( test 2!, 2@)
+        0 100 mem 2!
+        mem @
+        mem cell+ @
+        mem 2@
+        `,
+		"5 999 1000 100 0 0 100",
+	)
+}
