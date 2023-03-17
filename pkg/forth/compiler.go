@@ -278,6 +278,24 @@ func CompileLine(status *CompilerStatus, line string) error {
 			}
 			status.context.Exit()
 
+		case token == "WHILE":
+			if !status.context.Is(Begin) {
+				return NewCompilerError("Unbalanced control structure 'while'")
+			}
+			if status.pass == Second {
+				status.Add("  push repeat_{ID} jz") // Loop
+			}
+
+		case token == "REPEAT":
+			if !status.context.Is(Begin) {
+				return NewCompilerError("Unbalanced control structure 'repeat'")
+			}
+			if status.pass == Second {
+				status.Add("  push begin_{ID} jmp") // Loop
+				status.Add("repeat_{ID}:")
+			}
+			status.context.Exit()
+
 		case token == "?DUP":
 			status.context.Enter(If)
 			if status.pass == Second {

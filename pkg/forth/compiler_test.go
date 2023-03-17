@@ -168,6 +168,21 @@ func TestBeginUntil(t *testing.T) {
 	)
 }
 
+func TestBeginWhile(t *testing.T) {
+	testForth(t, `
+: factorial ( +n1 -- +n2 )
+   dup
+   begin dup 2 > while
+   1- swap over * swap
+   repeat drop
+;
+5 factorial
+2 factorial
+        `,
+		"120 2",
+	)
+}
+
 func TestStack(t *testing.T) {
 	testForth(t,
 		"10 ?dup 0 ?dup",
