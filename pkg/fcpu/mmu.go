@@ -27,6 +27,16 @@ func NewMMU() (mmu *MMU) {
 	return mmu
 }
 
+// Memory start address
+func (mmu *MMU) Start() Addr {
+	return 0
+}
+
+// Memory end address
+func (mmu *MMU) End() Addr {
+	return MemoryLimit
+}
+
 // Read a byte from Virtual Memory
 func (mmu *MMU) ReadB(address Addr) byte {
 	var page []byte

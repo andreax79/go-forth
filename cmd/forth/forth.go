@@ -17,12 +17,7 @@ func run(objFilename string, verbose bool) {
 		fmt.Println(err)
 		return
 	}
-	for {
-		err := cpu.Eval()
-		if err != nil {
-			break
-		}
-	}
+	cpu.Loop()
 	if verbose {
 		cpu.PrintMemory()
 	}

@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"time"
 	"unsafe"
 )
 
@@ -14,6 +15,7 @@ type Addr uint32
 type Word int32
 
 const WordSize = Addr(unsafe.Sizeof(Word(0)))
+const MemMask = int(WordSize - 1)
 
 // BUS     = 0o004
 // INVAL   = 0o010
@@ -26,6 +28,7 @@ const WordSize = Addr(unsafe.Sizeof(Word(0)))
 // RK      = 0o220
 
 const BinaryMagic uint32 = 0xc9f7a115
+const MemoryLimit Addr = 0xfffffc00
 
 type BinaryHeader struct {
 	Magic    uint32
@@ -36,7 +39,7 @@ type BinaryHeader struct {
 }
 
 type CPU struct {
-	mmu     *MMU   // Memory Management Unit
+	bus     *Bus   // Bus
 	pc      Addr   // Program counter
 	Ds      *Stack // Data Stack
 	Rs      *Stack // Return Stack
@@ -64,10 +67,10 @@ func NewCPU(filename string) (*CPU, error) {
 
 	var cpu *CPU
 	cpu = new(CPU)
-	cpu.mmu = NewMMU()
+	cpu.bus = NewBus()
 	cpu.pc = header.TextBase
-	cpu.Ds = NewStack(cpu.mmu, DataStackTop)
-	cpu.Rs = NewStack(cpu.mmu, ReturnStackTop)
+	cpu.Ds = NewStack(cpu.bus, DataStackTop)
+	cpu.Rs = NewStack(cpu.bus, ReturnStackTop)
 
 	// Load text segment
 	var text = make([]byte, header.TextSize)
@@ -75,7 +78,7 @@ func NewCPU(filename string) (*CPU, error) {
 	if err != nil {
 		return nil, err
 	}
-	cpu.mmu.WriteBytes(header.TextBase, text)
+	cpu.bus.WriteBytes(header.TextBase, text)
 
 	// Load data segment
 	if header.DataSize != 0 {
@@ -84,14 +87,14 @@ func NewCPU(filename string) (*CPU, error) {
 		if err != nil {
 			return nil, err
 		}
-		cpu.mmu.WriteBytes(header.DataBase, data)
+		cpu.bus.WriteBytes(header.DataBase, data)
 	}
 	return cpu, nil
 }
 
 func (cpu *CPU) PrintRegisters() {
 	var op Op
-	op = Op(cpu.mmu.ReadB(cpu.pc))
+	op = Op(cpu.bus.ReadB(cpu.pc))
 	// fmt.Printf("pc: %8x  sp: %4x  rsp: %4x  op: %-15s  stack: %s\n",
 	// 	cpu.pc, cpu.Ds.pointer, cpu.Rs.pointer, op.String(), cpu.Ds,
 	// )
@@ -101,14 +104,33 @@ func (cpu *CPU) PrintRegisters() {
 }
 
 func (cpu *CPU) PrintMemory() {
-	cpu.mmu.PrintMemory()
+	cpu.bus.Mmu.PrintMemory()
+}
+
+func (cpu *CPU) clock() {
+	for {
+		time.Sleep(1000 * time.Millisecond)
+		fmt.Println("X")
+		cpu.bus.WriteW(MemoryLimit, Word(0))
+	}
+}
+
+func (cpu *CPU) Loop() error {
+	// go cpu.clock()
+	for {
+		err := cpu.Eval()
+		// time.Sleep(1 * time.Millisecond)
+		if err != nil {
+			return err
+		}
+	}
 }
 
 func (cpu *CPU) Eval() error {
 	var v1 Word
 	var v2 Word
 	var v3 Word
-	op := Op(cpu.mmu.ReadB(cpu.pc))
+	op := Op(cpu.bus.ReadB(cpu.pc))
 	if cpu.Verbose {
 		cpu.PrintRegisters()
 	}
@@ -124,10 +146,10 @@ func (cpu *CPU) Eval() error {
 	case HLT:
 		return new(Halt)
 	case PUSH:
-		cpu.Ds.Push(cpu.mmu.ReadW(cpu.pc))
+		cpu.Ds.Push(cpu.bus.ReadW(cpu.pc))
 		cpu.pc += WordSize
 	case PUSH_B:
-		cpu.Ds.Push(Word(cpu.mmu.ReadB(cpu.pc)))
+		cpu.Ds.Push(Word(cpu.bus.ReadB(cpu.pc)))
 		cpu.pc += 1
 	case EMIT: // TODO
 		v1, _ = cpu.Ds.Pop()
@@ -256,18 +278,18 @@ func (cpu *CPU) Eval() error {
 		cpu.Ds.PushBool(v1 < v2)
 	case STORE:
 		v1, v2, _ = cpu.Ds.Pop2()
-		cpu.mmu.WriteW(Addr(v2), v1)
+		cpu.bus.WriteW(Addr(v2), v1)
 	case STORE_B:
 		v1, v2, _ = cpu.Ds.Pop2()
-		cpu.mmu.WriteB(Addr(v2), byte(v1))
+		cpu.bus.WriteB(Addr(v2), byte(v1))
 	case FETCH:
 		v1, _ := cpu.Ds.Pop()
-		value := cpu.mmu.ReadW(Addr(v1))
+		value := cpu.bus.ReadW(Addr(v1))
 		// fmt.Println("FETCH: ---", int(v1), int(value))
 		cpu.Ds.Push(value)
 	case FETCH_B:
 		v1, _ := cpu.Ds.Pop()
-		value := Word(cpu.mmu.ReadB(Addr(v1)))
+		value := Word(cpu.bus.ReadB(Addr(v1)))
 		// fmt.Println("FETCH_B: ---", int(v1), int(value))
 		cpu.Ds.Push(value)
 	case JNZ: // jump if not zero
@@ -300,18 +322,28 @@ func (cpu *CPU) Eval() error {
 	case CALL:
 		v1, _ = cpu.Ds.Pop()
 		cpu.Rs.Push(Word(cpu.pc))
-		// cpu.mmu.WriteW(cpu.rsp, Word(cpu.rsp))            // store rsp
-		// cpu.mmu.WriteW(cpu.rsp+1*WordSize, Word(cpu.rbp)) // store rbp
-		// cpu.mmu.WriteW(cpu.rsp+2*WordSize, Word(cpu.pc))  // store pc
+		// cpu.bus.WriteW(cpu.rsp, Word(cpu.rsp))            // store rsp
+		// cpu.bus.WriteW(cpu.rsp+1*WordSize, Word(cpu.rbp)) // store rbp
+		// cpu.bus.WriteW(cpu.rsp+2*WordSize, Word(cpu.pc))  // store pc
 		// cpu.rbp = cpu.rsp + 3*WordSize
 		// cpu.rsp = cpu.rbp
 		cpu.pc = Addr(v1)
 	case RET:
-		// cpu.pc = Addr(cpu.mmu.ReadW(cpu.rsp - 1*WordSize))  // return
-		// cpu.rbp = Addr(cpu.mmu.ReadW(cpu.rsp - 2*WordSize)) // restore rbp
-		// cpu.rsp = Addr(cpu.mmu.ReadW(cpu.rsp - 3*WordSize)) // restore rsp
+		// cpu.pc = Addr(cpu.bus.ReadW(cpu.rsp - 1*WordSize))  // return
+		// cpu.rbp = Addr(cpu.bus.ReadW(cpu.rsp - 2*WordSize)) // restore rbp
+		// cpu.rsp = Addr(cpu.bus.ReadW(cpu.rsp - 3*WordSize)) // restore rsp
 		v1, _ = cpu.Rs.Pop()
 		cpu.pc = Addr(v1)
 	}
 	return nil
 }
+
+// int is_transmit_empty() {
+//    return inb(PORT + 5) & 0x20;
+// }
+//
+// void write_serial(char a) {
+//    while (is_transmit_empty() == 0);
+//
+//    outb(PORT,a);
+// }
