@@ -6,6 +6,7 @@ https://people.ece.cornell.edu/land/courses/ece5760/DE2/Stack_cpu.html
   - forth comments [OK]
   - loop [OK]
   - forth definitions [OK]
+  - ( ... ) comments [OK]
 
 - assembler
   - variables [OK]
@@ -13,13 +14,46 @@ https://people.ece.cornell.edu/land/courses/ece5760/DE2/Stack_cpu.html
   - asciiz [OK]
   - word/bytes [OK]
 
+- bios
+  - compiler -> bios
+  - load bios
+  - display string/char
+  - read keyboard scancode (blocking)
+  - read keyboard scancode (non-blocking)
+  - read disk
+  - write disk
+  - get/size # of disks?
+  - get memory size?
+
 - cpu
   - mmu (virtual memory) [OK]
   - short opcodes [OK]
+  - shift [OK]
   - map registers ram?
   - interrupt
   - I/O
-  - shift
+
+
+   The CPU has the following instruction formats:
+
+    8 7 6 5 4 3 2 1 0
+   +-+-+-+-+-+-+-+-+-+
+   | # |             |
+   |pop|   opcode    |
+   |   |             |
+   +-+-+-+-+-+-+-+-+-+
+
+   Push 32 bit value:
+
+    8 7 6 5 4 3 2 1 0
+                      3 3 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
+                      1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   |             |                                                               |
+   |0 0| PUSH opcode |                        32 bit word                            |
+   |   |             |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
 
 ------------------------------------------------------------------------------------------------
 - call/ret ==> accesso variabili 'globali' ?
