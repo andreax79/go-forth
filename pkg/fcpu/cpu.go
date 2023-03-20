@@ -195,14 +195,6 @@ func (cpu *CPU) Eval() error {
 		cpu.Ds.Push(v1 * v2)
 	case DIV:
 		cpu.Ds.Push(v1 / v2)
-	case DIVMOD:
-		quot := v1 / v2
-		rem := v1 % v2
-		if rem != 0 && v1*v2 < 0 {
-			quot--
-		}
-		cpu.Ds.Push(rem)
-		cpu.Ds.Push(quot)
 	case MAX:
 		if v1 > v2 {
 			cpu.Ds.Push(v1)

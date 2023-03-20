@@ -35,11 +35,12 @@ var Definitions = map[string]string{
 	"2>R": "swap >r >r",            // ( x1 x2 -- ) ( R: -- x1 x2 ) Transfer cell pair x1 x2 to the return stack.
 
 	/* Arithmetic */
-	"+":      ";code add ;",
-	"-":      ";code sub ;",
-	"*":      ";code mul ;",
-	"/":      ";code div ;",
-	"/MOD":   ";code divmod ;",
+	"+":    ";code add ;",
+	"-":    ";code sub ;",
+	"*":    ";code mul ;",
+	"/":    ";code div ;",
+	"/MOD": "2dup 2>r / dup r> * r> swap - swap", // ( n1 n2 -- n3 n4 ) Divide n1 by n2, giving the remainder n3 and the quotient n4
+	// "/MOD":   "2dup 2>r / 2r> mod swap",
 	"MOD":    ";code mod ;",
 	"1+":     "1 +",
 	"1-":     "1 -",

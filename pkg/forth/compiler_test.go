@@ -74,7 +74,7 @@ func testForth(t *testing.T, source string, compareSource string) {
 		t.Fatalf("Wrong stack size: %d\n%s", cpu.Ds.Size(), source)
 	}
 	if !reflect.DeepEqual(cpu.Ds.Array(), compareCpu.Ds.Array()) {
-		t.Fatalf("Wrong stack content: %d expected: %d\n%s", cpu.Ds.Array(), compareCpu.Ds.Array(), source)
+		t.Fatalf("Wrong stack content:\n%d\nexpected:\n%d\n%s", cpu.Ds.Array(), compareCpu.Ds.Array(), source)
 	}
 }
 
@@ -221,7 +221,7 @@ func TestDivMod(t *testing.T) {
         -99 100 mod
         99 100 mod
         `,
-		"10 0 10 99 0 -99 -1 -99 0 -99 -99 99",
+		"10 0 10 99 0 -99 0 -99 0 -99 -99 99",
 	)
 }
 

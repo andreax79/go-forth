@@ -41,7 +41,6 @@ const (
 	SUB    = POP2 + iota /* Subtract */
 	MUL    = POP2 + iota /* Multiply */
 	DIV    = POP2 + iota /* Divide */
-	DIVMOD = POP2 + iota /* Returns remainder and quotient */
 	MAX    = POP2 + iota /* Leave greater of two numbers */
 	MIN    = POP2 + iota /* Leave lesser of two numbers */
 	ABS    = POP1 + iota /* Absolute value */
