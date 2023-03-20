@@ -11,12 +11,13 @@ import (
 
 var Definitions = map[string]string{
 	/* Stack manipulation */
-	"DUP":   ";code dup ;",
-	"DROP":  ";code drop ;",
-	"SWAP":  ";code swap ;",
-	"OVER":  ";code over ;",
-	"ROT":   ";code rot ;",
-	"PICK":  ";code pick ;",
+	"DUP":  ";code dup ;",
+	"DROP": ";code drop ;",
+	"SWAP": ";code swap ;",
+	"OVER": ";code over ;",
+	"ROT":  ">r swap r> swap",
+	"PICK": ";code pick ;",
+	// "PICK":  "dup 0= if drop dup ret then swap >r 1- recursive r> swap",
 	"ROLL":  ";code roll ;",
 	"DEPTH": ";code depth ;",
 	"NIP":   "swap drop",     // ( x1 x2 -- x2 ) Drop the first item below the top of stack.

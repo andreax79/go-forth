@@ -129,7 +129,6 @@ func (cpu *CPU) Loop() error {
 func (cpu *CPU) Eval() error {
 	var v1 Word
 	var v2 Word
-	var v3 Word
 	op := Op(cpu.bus.ReadB(cpu.pc))
 	if cpu.Verbose {
 		cpu.PrintRegisters()
@@ -137,6 +136,13 @@ func (cpu *CPU) Eval() error {
 	cpu.Time++
 	if cpu.Limit != 0 && cpu.Time >= cpu.Limit {
 		return new(Halt)
+	}
+
+	// Fetch operands
+	if op&POP2 > 0 {
+		v1, v2, _ = cpu.Ds.Pop2()
+	} else if op&POP1 > 0 {
+		v1, _ = cpu.Ds.Pop()
 	}
 
 	cpu.pc += OpSize
@@ -152,42 +158,28 @@ func (cpu *CPU) Eval() error {
 		cpu.Ds.Push(Word(cpu.bus.ReadB(cpu.pc)))
 		cpu.pc += 1
 	case EMIT: // TODO
-		v1, _ = cpu.Ds.Pop()
 		fmt.Printf("%c", int(v1))
 	case PERIOD: // TODO
-		v1, _ = cpu.Ds.Pop()
 		fmt.Printf(">>>> %d\n", int(v1))
-	case ZERO:
-		cpu.Ds.Push(0)
 	case DROP: /* Discards the top stack item */
-		cpu.Ds.Pop()
+		break
 	case DUP: /* Duplicates the top stack item */
-		cpu.Ds.Dup()
+		cpu.Ds.Push(v1)
+		cpu.Ds.Push(v1)
 	case SWAP: /* Reverses the top two stack items */
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v2)
 		cpu.Ds.Push(v1)
 	case OVER: /* Push a copy of the second element on the stack */
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1)
 		cpu.Ds.Push(v2)
 		cpu.Ds.Push(v1)
-	case ROT: /* Rotate the third item to top */
-		v1, v2, _ = cpu.Ds.Pop2()
-		v3, _ = cpu.Ds.Pop()
-		cpu.Ds.Push(v1)
-		cpu.Ds.Push(v2)
-		cpu.Ds.Push(v3)
 	case PICK: /* Remove u. Copy the x-u to the top of the stack. */
-		v1, _ = cpu.Ds.Pop()
 		cpu.Ds.Pick(v1)
 	case ROLL: /* Remove u.  Rotate u+1 items on the top of the stack */
-		v1, _ = cpu.Ds.Pop()
 		cpu.Ds.Roll(v1)
 	case DEPTH: /* Count number of items on stack */
 		cpu.Ds.Push(Word(cpu.Ds.Size()))
 	case TO_R: /* Move top item to the return stack. */
-		v1, _ = cpu.Ds.Pop()
 		cpu.Rs.Push(v1)
 	case R_FROM: /* Retrieve item from the return stack. */
 		v1, _ = cpu.Rs.Pop()
@@ -196,19 +188,14 @@ func (cpu *CPU) Eval() error {
 		v1, _ = cpu.Rs.Get()
 		cpu.Ds.Push(v1)
 	case ADD:
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 + v2)
 	case SUB:
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 - v2)
 	case MUL:
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 * v2)
 	case DIV:
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 / v2)
 	case DIVMOD:
-		v1, v2, _ = cpu.Ds.Pop2()
 		quot := v1 / v2
 		rem := v1 % v2
 		if rem != 0 && v1*v2 < 0 {
@@ -217,110 +204,84 @@ func (cpu *CPU) Eval() error {
 		cpu.Ds.Push(rem)
 		cpu.Ds.Push(quot)
 	case MAX:
-		v1, v2, _ = cpu.Ds.Pop2()
 		if v1 > v2 {
 			cpu.Ds.Push(v1)
 		} else {
 			cpu.Ds.Push(v2)
 		}
 	case MIN:
-		v1, v2, _ = cpu.Ds.Pop2()
 		if v1 < v2 {
 			cpu.Ds.Push(v1)
 		} else {
 			cpu.Ds.Push(v2)
 		}
 	case ABS:
-		v1, _ = cpu.Ds.Pop()
 		if v1 < 0 {
 			cpu.Ds.Push(-v1)
 		} else {
 			cpu.Ds.Push(v1)
 		}
 	case MOD:
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 % v2)
 	case LSHIFT:
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 << v2)
 	case RSHIFT:
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 >> v2)
 	case AND:
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 & v2)
 	case OR:
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 | v2)
 	case XOR:
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.Push(v1 ^ v2)
 	case NOT:
-		v1, _ = cpu.Ds.Pop()
 		cpu.Ds.PushBool(v1 == 0)
 	case EQ: /* Compare Equal */
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.PushBool(v1 == v2)
 	case NE: /* Compare for Not Equal */
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.PushBool(v1 != v2)
 	case GE: /* Compare for Greater Or Equal */
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.PushBool(v1 >= v2)
 	case GT: /* Compare for Greater */
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.PushBool(v1 > v2)
 	case LE: /* Compare for Equal or Less */
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.PushBool(v1 <= v2)
 	case LT: /* Compare for Less */
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.Ds.PushBool(v1 < v2)
 	case STORE:
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.bus.WriteW(Addr(v2), v1)
 	case STORE_B:
-		v1, v2, _ = cpu.Ds.Pop2()
 		cpu.bus.WriteB(Addr(v2), byte(v1))
 	case FETCH:
-		v1, _ := cpu.Ds.Pop()
 		value := cpu.bus.ReadW(Addr(v1))
 		// fmt.Println("FETCH: ---", int(v1), int(value))
 		cpu.Ds.Push(value)
 	case FETCH_B:
-		v1, _ := cpu.Ds.Pop()
 		value := Word(cpu.bus.ReadB(Addr(v1)))
 		// fmt.Println("FETCH_B: ---", int(v1), int(value))
 		cpu.Ds.Push(value)
 	case JNZ: // jump if not zero
-		v1, v2, _ := cpu.Ds.Pop2()
 		// fmt.Println("JNZ: ---", int(v1), int(v2))
 		if v1 != 0 {
 			cpu.pc = Addr(v2)
 		}
 	case JZ: // jump if zero
-		v1, v2, _ := cpu.Ds.Pop2()
 		// fmt.Println("JZ: ---", int(v1), int(v2))
 		if v1 == 0 {
 			cpu.pc = Addr(v2)
 		}
 	case JMP:
-		v1, _ := cpu.Ds.Pop()
 		cpu.pc = Addr(v1)
 	case PUSHRSP:
 		cpu.Ds.Push(Word(cpu.Rs.pointer))
 	case POPRSP:
-		v1, _ = cpu.Ds.Pop()
 		cpu.Rs.pointer = Addr(v1)
 	case PUSHRBP:
 		cpu.Ds.Push(Word(cpu.Rs.origin))
 	case POPRBP:
-		v1, _ = cpu.Ds.Pop()
 		cpu.Rs.origin = Addr(v1)
 	case PUSHPC:
 		cpu.Ds.Push(Word(cpu.pc))
 	case CALL:
-		v1, _ = cpu.Ds.Pop()
 		cpu.Rs.Push(Word(cpu.pc))
 		// cpu.bus.WriteW(cpu.rsp, Word(cpu.rsp))            // store rsp
 		// cpu.bus.WriteW(cpu.rsp+1*WordSize, Word(cpu.rbp)) // store rbp

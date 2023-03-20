@@ -12,12 +12,10 @@ var Instructions = map[string]fcpu.Op{
 
 	/* Stack manipulation */
 	"PUSH":  fcpu.PUSH,
-	"ZERO":  fcpu.ZERO,
 	"DUP":   fcpu.DUP,
 	"DROP":  fcpu.DROP,
 	"SWAP":  fcpu.SWAP,
 	"OVER":  fcpu.OVER,
-	"ROT":   fcpu.ROT,
 	"PICK":  fcpu.PICK,
 	"ROLL":  fcpu.ROLL,
 	"DEPTH": fcpu.DEPTH,

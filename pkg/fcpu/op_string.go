@@ -9,63 +9,11 @@ func _() {
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
 	_ = x[HLT-0]
-	_ = x[NOP-1]
-	_ = x[EMIT-2]
-	_ = x[PERIOD-3]
-	_ = x[PUSH-4]
-	_ = x[PUSH_B-5]
-	_ = x[ZERO-6]
-	_ = x[DUP-7]
-	_ = x[DROP-8]
-	_ = x[SWAP-9]
-	_ = x[OVER-10]
-	_ = x[ROT-11]
-	_ = x[PICK-12]
-	_ = x[ROLL-13]
-	_ = x[DEPTH-14]
-	_ = x[TO_R-15]
-	_ = x[R_FROM-16]
-	_ = x[R_FETCH-17]
-	_ = x[ADD-18]
-	_ = x[SUB-19]
-	_ = x[MUL-20]
-	_ = x[DIV-21]
-	_ = x[DIVMOD-22]
-	_ = x[MAX-23]
-	_ = x[MIN-24]
-	_ = x[ABS-25]
-	_ = x[MOD-26]
-	_ = x[LSHIFT-27]
-	_ = x[RSHIFT-28]
-	_ = x[AND-29]
-	_ = x[OR-30]
-	_ = x[XOR-31]
-	_ = x[NOT-32]
-	_ = x[EQ-33]
-	_ = x[NE-34]
-	_ = x[GE-35]
-	_ = x[GT-36]
-	_ = x[LE-37]
-	_ = x[LT-38]
-	_ = x[JNZ-39]
-	_ = x[JZ-40]
-	_ = x[JMP-41]
-	_ = x[CALL-42]
-	_ = x[RET-43]
-	_ = x[STORE-44]
-	_ = x[STORE_B-45]
-	_ = x[FETCH-46]
-	_ = x[FETCH_B-47]
-	_ = x[PUSHRSP-48]
-	_ = x[POPRSP-49]
-	_ = x[PUSHRBP-50]
-	_ = x[POPRBP-51]
-	_ = x[PUSHPC-52]
 }
 
-const _Op_name = "HLTNOPEMITPERIODPUSHPUSH_BZERODUPDROPSWAPOVERROTPICKROLLDEPTHTO_RR_FROMR_FETCHADDSUBMULDIVDIVMODMAXMINABSMODLSHIFTRSHIFTANDORXORNOTEQNEGEGTLELTJNZJZJMPCALLRETSTORESTORE_BFETCHFETCH_BPUSHRSPPOPRSPPUSHRBPPOPRBPPUSHPC"
+const _Op_name = "HLT"
 
-var _Op_index = [...]uint8{0, 3, 6, 10, 16, 20, 26, 30, 33, 37, 41, 45, 48, 52, 56, 61, 65, 71, 78, 81, 84, 87, 90, 96, 99, 102, 105, 108, 114, 120, 123, 125, 128, 131, 133, 135, 137, 139, 141, 143, 146, 148, 151, 155, 158, 163, 170, 175, 182, 189, 195, 202, 208, 214}
+var _Op_index = [...]uint8{0, 3}
 
 func (i Op) String() string {
 	if i >= Op(len(_Op_index)-1) {

@@ -71,10 +71,10 @@ func testForth(t *testing.T, source string, compareSource string) {
 		t.Fatalf("%s", err)
 	}
 	if cpu.Ds.Size() != compareCpu.Ds.Size() {
-		t.Fatalf("Wrong stack size: %d", cpu.Ds.Size())
+		t.Fatalf("Wrong stack size: %d\n%s", cpu.Ds.Size(), source)
 	}
 	if !reflect.DeepEqual(cpu.Ds.Array(), compareCpu.Ds.Array()) {
-		t.Fatalf("Wrong stack content: %d expected: %d", cpu.Ds.Array(), compareCpu.Ds.Array())
+		t.Fatalf("Wrong stack content: %d expected: %d\n%s", cpu.Ds.Array(), compareCpu.Ds.Array(), source)
 	}
 }
 
